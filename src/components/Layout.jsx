@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 
 import deliveryIcon from '../assets/free-shipping-icon.svg'
 import giftIcon from '../assets/gift-box-icon.svg'
@@ -14,6 +15,14 @@ function NavItem({ to, children }) {
     </NavLink>
   )
 }
+
+const MENU_LINKS = [
+  { to: '/', label: 'Accueil' },
+  { to: '/catalogue', label: 'Catalogue' },
+  { to: '/reels', label: 'Vidéos' },
+  { to: '/a-propos', label: 'À propos' },
+  { to: '/contact', label: 'Contact' },
+]
 
 export default function Layout({ children }) {
   const navigate = useNavigate()
@@ -51,12 +60,14 @@ export default function Layout({ children }) {
     setIsSearchOpen(false)
   }
 
+  const MotionDiv = motion.div
+
   return (
     <div className="mc-app">
       <header className="mc-header">
         <div className="mc-topbar">
           <div className="mc-container mc-topbar__inner">
-            <div className="mc-topbar__msg">Livraison offerte aujourd’hui · Retours 30 jours</div>
+            <div className="mc-topbar__msg">✦ Livraison offerte aujourd'hui · Retours 30 jours ✦</div>
           </div>
         </div>
 
@@ -67,7 +78,7 @@ export default function Layout({ children }) {
             </span>
             <span className="mc-brand__text">
               <span className="mc-brand__name">Maison Chrono</span>
-              <span className="mc-brand__tag">Montres d’exception</span>
+              <span className="mc-brand__tag">Montres d'exception</span>
             </span>
           </NavLink>
 
@@ -120,53 +131,80 @@ export default function Layout({ children }) {
             </button>
           </div>
         </div>
+
+        <nav className="mc-menu">
+          <div className="mc-container mc-menu__inner">
+            {MENU_LINKS.map((link) => (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                className={({ isActive }) => `mc-menu__link${isActive ? ' is-active' : ''}`}
+              >
+                {link.label}
+              </NavLink>
+            ))}
+          </div>
+        </nav>
       </header>
 
-      {isSearchOpen ? (
-        <div className="mc-searchOverlay" role="dialog" aria-modal="true" aria-label="Rechercher">
-          <div className="mc-searchOverlay__backdrop" onClick={() => setIsSearchOpen(false)}></div>
-          <div className="mc-searchOverlay__panel">
-            <form className="mc-search mc-search--overlay" role="search" onSubmit={submitSearch}>
-              <input
-                className="mc-search__input"
-                key={urlQuery}
-                defaultValue={urlQuery}
-                ref={searchRef}
-                placeholder="Rechercher une montre, une marque…"
-                aria-label="Rechercher"
-              />
-              <button className="mc-search__btn" type="submit" aria-label="Lancer la recherche">
-                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                  <path
-                    d="M13.58 13.58 18 18m-4.42-4.42A7 7 0 1 0 3.68 3.68a7 7 0 0 0 9.9 9.9Z"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
-            </form>
-          </div>
-        </div>
-      ) : null}
+      <AnimatePresence>
+        {isSearchOpen ? (
+          <MotionDiv
+            className="mc-searchOverlay"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Rechercher"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="mc-searchOverlay__backdrop" onClick={() => setIsSearchOpen(false)}></div>
+            <MotionDiv
+              className="mc-searchOverlay__panel"
+              initial={{ opacity: 0, y: -20, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.98 }}
+              transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+            >
+              <form className="mc-search mc-search--overlay" role="search" onSubmit={submitSearch}>
+                <input
+                  className="mc-search__input"
+                  key={urlQuery}
+                  defaultValue={urlQuery}
+                  ref={searchRef}
+                  placeholder="Rechercher une montre, une marque…"
+                  aria-label="Rechercher"
+                />
+                <button className="mc-search__btn" type="submit" aria-label="Lancer la recherche">
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path
+                      d="M13.58 13.58 18 18m-4.42-4.42A7 7 0 1 0 3.68 3.68a7 7 0 0 0 9.9 9.9Z"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              </form>
+            </MotionDiv>
+          </MotionDiv>
+        ) : null}
+      </AnimatePresence>
 
       <a
         className="mc-whatsapp"
         href={`https://wa.me/212691567246?text=${encodeURIComponent(
-          'Bonjour, je veux plus d’informations sur une montre Maison Chrono.',
+          `Bonjour, je veux plus d\u2019informations sur une montre Maison Chrono.`,
         )}`}
         target="_blank"
         rel="noreferrer"
         aria-label="WhatsApp"
       >
-        <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path
-            d="M16 3C9.383 3 4 8.22 4 14.64c0 2.52.87 4.86 2.35 6.76L5 29l7.83-1.29A12.48 12.48 0 0 0 16 26.28C22.617 26.28 28 21.06 28 14.64 28 8.22 22.617 3 16 3Z"
             fill="currentColor"
-          />
-          <path
-            d="M22.98 19.3c-.28.77-1.38 1.4-2.05 1.52-.46.07-1.06.12-3.42-.7-3.03-1.07-4.98-3.7-5.13-3.9-.14-.2-1.23-1.6-1.23-3.05 0-1.45.77-2.17 1.06-2.46.24-.24.64-.35 1.03-.35h.74c.23 0 .55-.08.86.66.33.8 1.12 2.74 1.22 2.94.1.2.15.43.03.7-.11.26-.17.43-.34.66-.17.22-.35.5-.5.67-.17.2-.35.41-.15.8.2.38.9 1.48 1.93 2.4 1.32 1.18 2.43 1.54 2.8 1.72.38.18.6.15.83-.09.22-.24.95-1.08 1.2-1.45.24-.38.5-.31.84-.2.35.11 2.2 1.02 2.57 1.2.38.18.63.27.72.41.09.14.09.8-.2 1.57Z"
-            fill="#0a0a0a"
+            d="M20.52 3.48A11.91 11.91 0 0 0 12.01 0C5.39 0 .01 5.38.01 12c0 2.12.55 4.19 1.6 6.02L0 24l6.17-1.6A11.96 11.96 0 0 0 12 24h.01c6.62 0 12-5.38 12-12 0-3.2-1.25-6.21-3.49-8.52Zm-8.51 18.48h-.01c-1.82 0-3.6-.49-5.15-1.42l-.37-.22-3.66.95.98-3.57-.24-.37A9.95 9.95 0 0 1 2.02 12c0-5.5 4.48-9.98 9.99-9.98 2.67 0 5.18 1.04 7.07 2.93A9.93 9.93 0 0 1 22 12c0 5.51-4.48 9.99-9.99 9.99Zm5.48-7.5c-.3-.15-1.77-.87-2.04-.97-.28-.1-.48-.15-.68.15-.2.3-.78.97-.95 1.17-.18.2-.35.22-.65.07-.3-.15-1.25-.46-2.38-1.47-.88-.79-1.47-1.77-1.64-2.07-.17-.3-.02-.46.13-.6.14-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.08-.15-.68-1.63-.93-2.23-.24-.58-.48-.5-.68-.5h-.58c-.2 0-.52.07-.8.37-.28.3-1.05 1.03-1.05 2.5s1.08 2.9 1.23 3.1c.15.2 2.13 3.25 5.16 4.56.72.31 1.28.5 1.72.64.72.23 1.38.2 1.9.12.58-.09 1.77-.72 2.02-1.42.25-.7.25-1.3.17-1.42-.08-.12-.27-.2-.57-.35Z"
           />
         </svg>
       </a>
@@ -216,7 +254,7 @@ export default function Layout({ children }) {
           <div className="mc-container mc-footer__grid">
             <div className="mc-footer__brand">
               <div className="mc-footer__logo">Maison Chrono</div>
-              <div className="mc-footer__tag">Montres d’exception</div>
+              <div className="mc-footer__tag">Montres d'exception</div>
               <div className="mc-footer__newsTitle">Newsletter</div>
               <div className="mc-footer__newsText">
                 Inscrivez-vous pour recevoir les nouveautés et offres exclusives.
@@ -229,13 +267,13 @@ export default function Layout({ children }) {
               </form>
               <div className="mc-footer__social" aria-label="Réseaux sociaux">
                 <a className="mc-social" href="#" aria-label="Facebook">
-                  f
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
                 </a>
                 <a className="mc-social" href="#" aria-label="Instagram">
-                  in
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
                 </a>
                 <a className="mc-social" href="#" aria-label="TikTok">
-                  t
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>
                 </a>
               </div>
             </div>

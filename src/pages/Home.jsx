@@ -9,7 +9,7 @@ import { getSupabaseConfig, isSupabaseConfigured } from '../lib/supabaseClient.j
 
 const ACCROCHES = [
   'Le luxe à votre portée.',
-  'L’excellence, tout simplement.',
+  `L'excellence, tout simplement.`,
   'Votre prochaine montre est ici.',
   'Le temps, en version luxe.',
   'Signez votre style.',
@@ -19,23 +19,58 @@ const STYLES = [
   {
     title: 'Les Iconiques',
     desc: 'Les modèles légendaires (Submariner, Speedmaster, Tank).',
+    icon: '👑',
   },
   {
     title: 'Sport & Performance',
     desc: 'Montres de plongée, chronographes et modèles robustes.',
+    icon: '⚡',
   },
   {
     title: 'Classique & Soirée',
     desc: 'Montres habillées, fines et élégantes.',
+    icon: '✨',
   },
   {
     title: 'Haute Horlogerie',
     desc: 'Modèles à complications (Tourbillons, Calendriers perpétuels).',
+    icon: '🔮',
   },
 ]
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.1,
+    },
+  },
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: [0.4, 0, 0.2, 1] },
+  },
+}
+
+function SkeletonGrid() {
+  return (
+    <div className="mc-grid">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="mc-skeleton mc-skeleton--card" />
+      ))}
+    </div>
+  )
+}
+
 export default function Home() {
   const MotionDiv = motion.div
+  const MotionSection = motion.section
   const supabaseConfig = useMemo(() => getSupabaseConfig(), [])
   const [accrocheIndex, setAccrocheIndex] = useState(0)
   const [categories, setCategories] = useState([])
@@ -102,44 +137,65 @@ export default function Home() {
         </Notice>
       ) : null}
 
-      <section className="mc-heroBanner" aria-label="Hero">
+      <MotionSection
+        className="mc-heroBanner"
+        aria-label="Hero"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
+      >
         <img className="mc-heroBanner__img" src={hero1Img} alt="" loading="eager" />
-      </section>
+      </MotionSection>
 
-      <section className="mc-accroche" aria-label="Accroche">
+      <MotionSection
+        className="mc-accroche"
+        aria-label="Accroche"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.6, delay: 0.3 }}
+      >
         <div className="mc-accroche__inner">
           <MotionDiv
             key={accrocheIndex}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, ease: 'easeOut' }}
+            initial={{ opacity: 0, y: 12, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
           >
             <div className="mc-accroche__text">{ACCROCHES[accrocheIndex]}</div>
           </MotionDiv>
         </div>
-      </section>
+      </MotionSection>
 
-      <section className="mc-section">
+      <MotionSection
+        className="mc-section"
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-80px' }}
+        transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+      >
         <div className="mc-section__head">
           <h2 className="mc-section__title">Par style</h2>
         </div>
 
         <MotionDiv
           className="mc-grid mc-grid--styles"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.35, ease: 'easeOut' }}
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-60px' }}
         >
           {STYLES.map((s) => (
-            <div key={s.title} className="mc-styleCard">
+            <MotionDiv key={s.title} className="mc-styleCard" variants={itemVariants}>
+              <div style={{ fontSize: '28px', marginBottom: '10px' }}>{s.icon}</div>
               <div className="mc-styleCard__title">{s.title}</div>
               <div className="mc-styleCard__desc">{s.desc}</div>
-            </div>
+            </MotionDiv>
           ))}
         </MotionDiv>
-      </section>
+      </MotionSection>
 
-      {status === 'loading' ? <div className="mc-muted">Chargement…</div> : null}
+      {status === 'loading' ? <SkeletonGrid /> : null}
       {status === 'error' ? (
         <Notice title="Impossible de charger les produits" tone="danger">
           {String(error?.message ?? error)}
@@ -152,16 +208,23 @@ export default function Home() {
             .map((c) => ({ category: c, products: productsByCategoryId.get(c.id) ?? [] }))
             .filter((x) => x.products.length > 0)
             .map(({ category, products: catProducts }) => (
-              <section key={category.id} className="mc-section">
+              <MotionSection
+                key={category.id}
+                className="mc-section"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-60px' }}
+                transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+              >
                 <div className="mc-section__head">
                   <h2 className="mc-section__title">{category.name}</h2>
                 </div>
                 <div className="mc-grid">
-                  {catProducts.map((p) => (
-                    <ProductCard key={p.id} product={p} />
+                  {catProducts.map((p, idx) => (
+                    <ProductCard key={p.id} product={p} index={idx} />
                   ))}
                 </div>
-              </section>
+              </MotionSection>
             ))}
         </div>
       ) : null}

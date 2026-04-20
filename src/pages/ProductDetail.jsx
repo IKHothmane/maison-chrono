@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
@@ -13,6 +13,8 @@ const numberFormatter = new Intl.NumberFormat('fr-FR', {
 })
 
 const WHATSAPP_NUMBER = '212691567246'
+const DEBUG = Boolean(import.meta?.env?.DEV) || String(import.meta?.env?.VITE_DEBUG ?? '') === '1'
+const SHOW_DEBUG_UI = DEBUG || String(import.meta?.env?.VITE_DEBUG_UI ?? '') === '1'
 
 function formatDh(value) {
   const n = typeof value === 'number' ? value : Number(value)
@@ -25,18 +27,42 @@ function openWhatsApp(text) {
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
-function Spec({ label, value }) {
+function Spec({ label, value, index = 0 }) {
   if (value === null || value === undefined || value === '') return null
+  const MotionDiv = motion.div
   return (
-    <div className="mc-spec">
+    <MotionDiv
+      className="mc-spec"
+      initial={{ opacity: 0, x: -12 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.4, delay: index * 0.08, ease: [0.4, 0, 0.2, 1] }}
+    >
       <div className="mc-spec__label">{label}</div>
       <div className="mc-spec__value">{value}</div>
-    </div>
+    </MotionDiv>
+  )
+}
+
+function ProductSkeleton() {
+  return (
+    <section className="mc-product">
+      <div>
+        <div className="mc-skeleton" style={{ height: 480, borderRadius: 18 }} />
+      </div>
+      <div style={{ display: 'grid', gap: 14 }}>
+        <div className="mc-skeleton mc-skeleton--text" style={{ width: '40%' }} />
+        <div className="mc-skeleton mc-skeleton--title" style={{ width: '75%' }} />
+        <div className="mc-skeleton mc-skeleton--text" style={{ width: '30%' }} />
+        <div className="mc-skeleton" style={{ height: 120 }} />
+        <div className="mc-skeleton" style={{ height: 200 }} />
+      </div>
+    </section>
   )
 }
 
 export default function ProductDetail() {
   const MotionDiv = motion.div
+  const MotionSection = motion.section
   const { id } = useParams()
   const [product, setProduct] = useState(null)
   const [error, setError] = useState(null)
@@ -46,6 +72,7 @@ export default function ProductDetail() {
   const images = useMemo(() => product?.images ?? [], [product])
   const [activeVideoIndex, setActiveVideoIndex] = useState(0)
   const [videos, setVideos] = useState([])
+  const [videosError, setVideosError] = useState(null)
 
   useEffect(() => {
     if (images.length <= 1) return
@@ -55,7 +82,7 @@ export default function ProductDetail() {
     return () => window.clearInterval(id)
   }, [images])
 
-  const [form, setForm] = useState({ name: '', email: '', phone: '', message: '' })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', city: '', address: '' })
   const [submitStatus, setSubmitStatus] = useState('idle')
   const [submitError, setSubmitError] = useState(null)
   const [inquiryId, setInquiryId] = useState(null)
@@ -98,12 +125,16 @@ export default function ProductDetail() {
     listProductVideos(product.id)
       .then((rows) => {
         if (cancelled) return
+        if (DEBUG) console.log('[MaisonChrono][ProductDetail] videos ok', product.id, rows.length)
         setVideos(rows)
         setActiveVideoIndex(0)
+        setVideosError(null)
       })
-      .catch(() => {
+      .catch((e) => {
         if (cancelled) return
+        if (DEBUG) console.log('[MaisonChrono][ProductDetail] videos error', product?.id, e)
         setVideos([])
+        setVideosError(e)
       })
     return () => {
       cancelled = true
@@ -155,7 +186,7 @@ export default function ProductDetail() {
         discountAmount: row.discount_amount ?? null,
       })
       if (finalPrice == null || Number(finalPrice) >= Number(price)) {
-        setPromoError(new Error('Code appliqué, mais aucune réduction n’a été détectée.'))
+        setPromoError(new Error(`Code appliqué, mais aucune réduction n\u2019a été détectée.`))
       }
       setPromoStatus('success')
     } catch (err) {
@@ -183,12 +214,12 @@ export default function ProductDetail() {
     e.preventDefault()
     setSubmitError(null)
 
-    if (!form.name.trim() || !form.phone.trim() || !form.message.trim()) {
-      setSubmitError(new Error('Nom, téléphone et message sont obligatoires.'))
+    if (!form.name.trim() || !form.phone.trim() || !form.city.trim() || !form.address.trim()) {
+      setSubmitError(new Error('Nom, téléphone, ville et adresse sont obligatoires.'))
       return
     }
 
-    const ok = window.confirm('Confirmer l’envoi ? WhatsApp va s’ouvrir pour confirmer le message.')
+    const ok = window.confirm(`Confirmer l'envoi ? WhatsApp va s'ouvrir pour confirmer le message.`)
     if (!ok) return
 
     setSubmitStatus('loading')
@@ -198,7 +229,8 @@ export default function ProductDetail() {
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone,
-        message: form.message.trim(),
+        city: form.city.trim(),
+        address: form.address.trim(),
       })
       setInquiryId(data?.id ?? null)
       setSubmitStatus('success')
@@ -209,26 +241,42 @@ export default function ProductDetail() {
         productName ? `Produit: ${productName}` : null,
         `Nom: ${form.name.trim()}`,
         `Téléphone: ${form.phone.trim()}`,
+        `Ville: ${form.city.trim()}`,
+        `Adresse: ${form.address.trim()}`,
         form.email.trim() ? `Email: ${form.email.trim()}` : null,
-        `Message: ${form.message.trim()}`,
         data?.id ? `Référence: ${data.id}` : null,
         `Lien: ${productLink}`,
       ].filter(Boolean)
       openWhatsApp(lines.join('\n'))
-      setForm({ name: '', email: '', phone: '', message: '' })
+      setForm({ name: '', email: '', phone: '', city: '', address: '' })
     } catch (err) {
       setSubmitError(err)
       setSubmitStatus('error')
     }
   }
 
+  const specs = product
+    ? [
+        { label: 'Référence', value: product.reference },
+        { label: 'Boîtier', value: product.material },
+        { label: 'Mouvement', value: product.movement },
+        { label: 'Étanchéité', value: product.water_resistance },
+        { label: 'Diamètre', value: product.diameter ? `${product.diameter} mm` : null },
+      ].filter((s) => s.value != null && s.value !== '')
+    : []
+
   return (
     <div className="mc-stack">
-      <div className="mc-breadcrumb">
+      <MotionDiv
+        className="mc-breadcrumb"
+        initial={{ opacity: 0, x: -12 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.4 }}
+      >
         <Link className="mc-link" to="/catalogue">
           ← Retour au catalogue
         </Link>
-      </div>
+      </MotionDiv>
 
       {!isSupabaseConfigured() ? (
         <Notice title="Supabase non configuré" tone="danger">
@@ -237,7 +285,7 @@ export default function ProductDetail() {
         </Notice>
       ) : null}
 
-      {status === 'loading' ? <div className="mc-muted">Chargement…</div> : null}
+      {status === 'loading' ? <ProductSkeleton /> : null}
       {status === 'error' ? (
         <Notice title="Erreur de chargement" tone="danger">
           {String(error?.message ?? error)}
@@ -248,19 +296,35 @@ export default function ProductDetail() {
       ) : null}
 
       {product && product.id === id ? (
-        <section className="mc-product">
+        <MotionSection
+          className="mc-product"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
           <MotionDiv
             className="mc-product__gallery"
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: 'easeOut' }}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
           >
             <div className="mc-product__image">
-              {activeImageUrl ? (
-                <img src={activeImageUrl} alt="" className="mc-product__img" />
-              ) : (
-                <div className="mc-product__img mc-product__img--placeholder"></div>
-              )}
+              <AnimatePresence mode="wait">
+                {activeImageUrl ? (
+                  <MotionDiv
+                    key={activeImageUrl}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.4 }}
+                    style={{ width: '100%', height: '100%' }}
+                  >
+                    <img src={activeImageUrl} alt="" className="mc-product__img" />
+                  </MotionDiv>
+                ) : (
+                  <div className="mc-product__img mc-product__img--placeholder"></div>
+                )}
+              </AnimatePresence>
             </div>
             {images.length > 1 ? (
               <div className="mc-product__thumbs" role="tablist" aria-label="Images produit">
@@ -288,6 +352,11 @@ export default function ProductDetail() {
                     preload="metadata"
                   />
                 </div>
+                {SHOW_DEBUG_UI ? (
+                  <div className="mc-videoDebug">
+                    <div className="mc-muted">URL vidéo: {activeVideoUrl}</div>
+                  </div>
+                ) : null}
                 {videos.length > 1 ? (
                   <div className="mc-product__videoTabs" role="tablist" aria-label="Vidéos produit">
                     {videos.map((v, idx) => (
@@ -304,9 +373,19 @@ export default function ProductDetail() {
                 ) : null}
               </div>
             ) : null}
+            {!activeVideoUrl && videosError ? (
+              <div className="mc-product__video">
+                <div className="mc-muted">Vidéos indisponibles: {String(videosError?.message ?? videosError)}</div>
+              </div>
+            ) : null}
           </MotionDiv>
 
-          <div className="mc-product__info">
+          <MotionDiv
+            className="mc-product__info"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.15, ease: [0.4, 0, 0.2, 1] }}
+          >
             <div className="mc-product__kicker">
               {product.brands?.name ?? ''}
               {product.brands?.name && product.categories?.name ? ' · ' : ''}
@@ -321,11 +400,16 @@ export default function ProductDetail() {
                 </div>
               </div>
               <span className={`mc-badge${product.in_stock ? '' : ' is-muted'}`}>
-                {product.in_stock ? 'Disponible' : 'Sur demande'}
+                {product.in_stock ? '✓ Disponible' : 'Sur demande'}
               </span>
             </div>
 
-            <div className="mc-panel">
+            <MotionDiv
+              className="mc-panel"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.3 }}
+            >
               <div className="mc-panel__title">Code promo</div>
               <form className="mc-form" onSubmit={applyPromo}>
                 <div className="mc-form__row">
@@ -353,25 +437,40 @@ export default function ProductDetail() {
                   </Notice>
                 ) : null}
               </form>
-            </div>
+            </MotionDiv>
 
-            {product.description ? <p className="mc-product__desc">{product.description}</p> : null}
+            {product.description ? (
+              <MotionDiv
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.35 }}
+              >
+                <p className="mc-product__desc">{product.description}</p>
+              </MotionDiv>
+            ) : null}
 
-            <div className="mc-panel">
-              <div className="mc-panel__title">Spécifications</div>
-              <div className="mc-specs">
-                <Spec label="Référence" value={product.reference} />
-                <Spec label="Boîtier" value={product.material} />
-                <Spec label="Mouvement" value={product.movement} />
-                <Spec label="Étanchéité" value={product.water_resistance} />
-                <Spec
-                  label="Diamètre"
-                  value={product.diameter ? `${product.diameter} mm` : null}
-                />
-              </div>
-            </div>
+            {specs.length > 0 ? (
+              <MotionDiv
+                className="mc-panel"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.4 }}
+              >
+                <div className="mc-panel__title">Spécifications</div>
+                <div className="mc-specs">
+                  {specs.map((s, i) => (
+                    <Spec key={s.label} label={s.label} value={s.value} index={i} />
+                  ))}
+                </div>
+              </MotionDiv>
+            ) : null}
 
-            <div className="mc-panel">
+            <MotionDiv
+              className="mc-panel"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.5 }}
+            >
               <div className="mc-panel__title">Demander un renseignement</div>
 
               {submitStatus === 'success' ? (
@@ -406,6 +505,7 @@ export default function ProductDetail() {
                     <span className="mc-field__label">Email</span>
                     <input
                       className="mc-input"
+                      className="mc-input"
                       type="email"
                       value={form.email}
                       onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
@@ -425,16 +525,26 @@ export default function ProductDetail() {
                   />
                 </label>
 
-                <label className="mc-field">
-                  <span className="mc-field__label">Message</span>
-                  <textarea
-                    className="mc-input mc-input--textarea"
-                    value={form.message}
-                    onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
-                    rows={5}
-                    required
-                  />
-                </label>
+                <div className="mc-form__row">
+                  <label className="mc-field">
+                    <span className="mc-field__label">Ville</span>
+                    <input
+                      className="mc-input"
+                      value={form.city}
+                      onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                      required
+                    />
+                  </label>
+                  <label className="mc-field">
+                    <span className="mc-field__label">Adresse</span>
+                    <input
+                      className="mc-input"
+                      value={form.address}
+                      onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                      required
+                    />
+                  </label>
+                </div>
 
                 {submitError && submitStatus !== 'error' ? (
                   <Notice title="Formulaire" tone="danger">
@@ -443,14 +553,13 @@ export default function ProductDetail() {
                 ) : null}
 
                 <button className="mc-btn mc-btn--primary" disabled={submitStatus === 'loading'}>
-                  {submitStatus === 'loading' ? 'Envoi…' : 'Envoyer'}
+                  {submitStatus === 'loading' ? 'Envoi…' : 'Envoyer la demande'}
                 </button>
               </form>
-            </div>
-          </div>
-        </section>
+            </MotionDiv>
+          </MotionDiv>
+        </MotionSection>
       ) : null}
     </div>
   )
 }
-

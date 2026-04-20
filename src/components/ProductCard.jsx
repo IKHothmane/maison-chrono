@@ -11,7 +11,7 @@ function formatDh(value) {
   return `${numberFormatter.format(safe)} DH`
 }
 
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, index = 0 }) {
   const MotionArticle = motion.article
   const imageUrl = product?.images?.[0] ?? null
   const brandName = product?.brands?.name ?? ''
@@ -23,10 +23,10 @@ export default function ProductCard({ product }) {
   return (
     <MotionArticle
       className="mc-card"
-      initial={{ opacity: 0, y: 14 }}
+      initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-80px' }}
-      transition={{ duration: 0.5, ease: 'easeOut' }}
+      viewport={{ once: true, margin: '-60px' }}
+      transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1], delay: index * 0.08 }}
     >
       <Link to={`/produit/${product.id}`} className="mc-card__link">
         <div className="mc-card__media" aria-hidden="true">

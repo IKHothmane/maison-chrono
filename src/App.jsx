@@ -4,7 +4,11 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 
 import Layout from './components/Layout.jsx'
 import Home from './pages/Home.jsx'
+import Catalog from './pages/Catalog.jsx'
 import ProductDetail from './pages/ProductDetail.jsx'
+import Reels from './pages/Reels.jsx'
+import Contact from './pages/Contact.jsx'
+import About from './pages/About.jsx'
 
 function App() {
   return (
@@ -12,10 +16,11 @@ function App() {
       <Layout>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/catalogue" element={<Home />} />
+          <Route path="/catalogue" element={<Catalog />} />
           <Route path="/produit/:id" element={<ProductDetail />} />
-          <Route path="/a-propos" element={<Home />} />
-          <Route path="/contact" element={<Home />} />
+          <Route path="/reels" element={<Reels />} />
+          <Route path="/a-propos" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
         </Routes>
       </Layout>
     </BrowserRouter>

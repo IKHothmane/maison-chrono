@@ -8,14 +8,16 @@ function ensureSupabase() {
   }
 }
 
-export async function createInquiry({ productId, name, email, phone, message }) {
+export async function createInquiry({ productId, name, email, phone, city, address }) {
   ensureSupabase()
   const payload = {
     product_id: productId ?? null,
     name,
-    email,
+    email: email?.trim() ? email.trim() : '',
     phone: phone?.trim() ? phone.trim() : null,
-    message,
+    city: city?.trim() ? city.trim() : null,
+    address: address?.trim() ? address.trim() : null,
+    message: '',
   }
 
   const { error } = await supabase.from('inquiries').insert(payload)
@@ -36,6 +38,8 @@ export async function createInquiry({ productId, name, email, phone, message }) 
         name,
         phone: phone?.trim() ? phone.trim() : null,
         email: email?.trim() ? email.trim() : null,
+        city: city?.trim() ? city.trim() : null,
+        address: address?.trim() ? address.trim() : null,
         productId: productId ?? null,
       },
     })

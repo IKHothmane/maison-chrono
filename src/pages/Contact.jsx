@@ -14,19 +14,19 @@ function openWhatsApp(text) {
 
 export default function Contact() {
   const MotionDiv = motion.div
-  const [form, setForm] = useState({ name: '', email: '', phone: '', message: '' })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', city: '', address: '' })
   const [status, setStatus] = useState('idle')
   const [error, setError] = useState(null)
 
   async function onSubmit(e) {
     e.preventDefault()
     setError(null)
-    if (!form.name.trim() || !form.phone.trim() || !form.message.trim()) {
-      setError(new Error('Nom, téléphone et message sont obligatoires.'))
+    if (!form.name.trim() || !form.phone.trim() || !form.city.trim() || !form.address.trim()) {
+      setError(new Error('Nom, téléphone, ville et adresse sont obligatoires.'))
       return
     }
 
-    const ok = window.confirm('Confirmer l’envoi ? WhatsApp va s’ouvrir pour confirmer le message.')
+    const ok = window.confirm(`Confirmer l'envoi ? WhatsApp va s'ouvrir pour confirmer le message.`)
     if (!ok) return
 
     setStatus('loading')
@@ -36,20 +36,22 @@ export default function Contact() {
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone,
-        message: form.message.trim(),
+        city: form.city.trim(),
+        address: form.address.trim(),
       })
       setStatus('success')
       const lines = [
         'Demande Maison Chrono',
         `Nom: ${form.name.trim()}`,
         `Téléphone: ${form.phone.trim()}`,
+        `Ville: ${form.city.trim()}`,
+        `Adresse: ${form.address.trim()}`,
         form.email.trim() ? `Email: ${form.email.trim()}` : null,
-        `Message: ${form.message.trim()}`,
         data?.id ? `Référence: ${data.id}` : null,
         `Site: ${window.location.origin}`,
       ].filter(Boolean)
       openWhatsApp(lines.join('\n'))
-      setForm({ name: '', email: '', phone: '', message: '' })
+      setForm({ name: '', email: '', phone: '', city: '', address: '' })
     } catch (err) {
       setError(err)
       setStatus('error')
@@ -123,15 +125,24 @@ export default function Contact() {
           </label>
 
           <label className="mc-field">
-            <span className="mc-field__label">Message</span>
-            <textarea
-              className="mc-input mc-input--textarea"
-              value={form.message}
-              onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
-              rows={6}
-              required
-            />
-          </label>
+                <span className="mc-field__label">Ville</span>
+                <input
+                  className="mc-input"
+                  value={form.city}
+                  onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                  required
+                />
+              </label>
+
+              <label className="mc-field">
+                <span className="mc-field__label">Adresse</span>
+                <textarea
+                  className="mc-input mc-input--textarea"
+                  value={form.address}
+                  onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                  required
+                />
+              </label>
 
           {error && status !== 'error' ? (
             <Notice title="Formulaire" tone="danger">

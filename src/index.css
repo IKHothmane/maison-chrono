@@ -1,27 +1,125 @@
+/* ═══════════════════════════════════════════════════
+   MAISON CHRONO — Design System & Global Styles
+   ═══════════════════════════════════════════════════ */
+
+/* ── Keyframe Animations ─────────────────────────── */
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(201, 169, 110, 0.15); }
+  50%      { box-shadow: 0 0 22px rgba(201, 169, 110, 0.35); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%      { transform: translateY(-6px); }
+}
+
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes borderGlow {
+  0%, 100% { border-color: rgba(201, 169, 110, 0.15); }
+  50%      { border-color: rgba(201, 169, 110, 0.45); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes textReveal {
+  from { opacity: 0; transform: translateY(100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes whatsappPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.5); }
+  70%  { box-shadow: 0 0 0 18px rgba(37, 211, 102, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+}
+
+@keyframes shine {
+  0%   { left: -100%; }
+  100% { left: 200%; }
+}
+
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* ── Design Tokens ───────────────────────────────── */
+
 :root {
   --mc-gold: #c9a96e;
+  --mc-gold-light: #dfc28d;
+  --mc-gold-dark: #a88b52;
   --mc-black: #0a0a0a;
   --mc-offwhite: #f5f5f0;
   --mc-charcoal: #1a1a1a;
+  --mc-charcoal-light: #252525;
 
   --mc-text: rgba(245, 245, 240, 0.92);
   --mc-muted: rgba(245, 245, 240, 0.7);
+  --mc-muted-soft: rgba(245, 245, 240, 0.5);
   --mc-border: rgba(245, 245, 240, 0.12);
+  --mc-border-gold: rgba(201, 169, 110, 0.22);
   --mc-glass: rgba(26, 26, 26, 0.55);
   --mc-glass-strong: rgba(26, 26, 26, 0.72);
   --mc-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+  --mc-shadow-gold: 0 8px 32px rgba(201, 169, 110, 0.12);
 
-  --mc-font-sans: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mc-font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --mc-font-serif: 'Playfair Display', Georgia, serif;
   --mc-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
+  --mc-radius-sm: 10px;
+  --mc-radius-md: 14px;
+  --mc-radius-lg: 18px;
+  --mc-radius-xl: 22px;
+
+  --mc-transition: 280ms cubic-bezier(0.4, 0, 0.2, 1);
+  --mc-transition-fast: 160ms cubic-bezier(0.4, 0, 0.2, 1);
+
   font-family: var(--mc-font-sans);
   font-size: 16px;
-  line-height: 1.5;
+  font-weight: 300;
+  line-height: 1.6;
   color: var(--mc-text);
-  background: radial-gradient(1200px 700px at 70% 0%, rgba(201, 169, 110, 0.16), transparent 55%),
-    radial-gradient(900px 600px at 20% 20%, rgba(255, 255, 255, 0.06), transparent 55%),
+  background:
+    radial-gradient(1400px 800px at 70% 0%, rgba(201, 169, 110, 0.12), transparent 55%),
+    radial-gradient(1000px 700px at 20% 20%, rgba(255, 255, 255, 0.04), transparent 55%),
+    radial-gradient(600px 600px at 80% 80%, rgba(201, 169, 110, 0.06), transparent 55%),
     linear-gradient(180deg, var(--mc-black), var(--mc-charcoal));
+  background-attachment: fixed;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -38,6 +136,7 @@ body {
   margin: 0;
   min-height: 100svh;
   position: relative;
+  overflow-x: hidden;
 }
 
 body::before {
@@ -45,7 +144,7 @@ body::before {
   position: fixed;
   inset: 0;
   background: url("./assets/logo bg.png") center / 460px no-repeat;
-  opacity: 0.12;
+  opacity: 0.08;
   pointer-events: none;
   z-index: 0;
 }
@@ -53,6 +152,11 @@ body::before {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
 }
 
 button,
@@ -64,14 +168,38 @@ textarea {
 }
 
 ::selection {
-  background: rgba(201, 169, 110, 0.28);
+  background: rgba(201, 169, 110, 0.32);
+  color: var(--mc-offwhite);
 }
+
+/* ── Custom Scrollbar ────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(10, 10, 10, 0.3);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(201, 169, 110, 0.25);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(201, 169, 110, 0.45);
+}
+
+/* ── Code Blocks ─────────────────────────────────── */
 
 .mc-code {
   font-family: var(--mc-font-mono);
-  font-size: 0.95em;
-  padding: 2px 6px;
+  font-size: 0.92em;
+  padding: 2px 8px;
   border: 1px solid var(--mc-border);
   border-radius: 8px;
-  background: rgba(10, 10, 10, 0.35);
+  background: rgba(10, 10, 10, 0.45);
+  color: var(--mc-gold-light);
 }
