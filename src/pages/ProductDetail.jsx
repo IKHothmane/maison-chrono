@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router-dom'
 import Notice from '../components/Notice.jsx'
 import { getProductById } from '../lib/api/catalog.js'
 import { createInquiry } from '../lib/api/inquiries.js'
+import { listProductVideos } from '../lib/api/videos.js'
 import { isSupabaseConfigured, supabase } from '../lib/supabaseClient.js'
 
 const numberFormatter = new Intl.NumberFormat('fr-FR', {
@@ -43,6 +44,8 @@ export default function ProductDetail() {
 
   const [activeImageIndex, setActiveImageIndex] = useState(0)
   const images = useMemo(() => product?.images ?? [], [product])
+  const [activeVideoIndex, setActiveVideoIndex] = useState(0)
+  const [videos, setVideos] = useState([])
 
   useEffect(() => {
     if (images.length <= 1) return
@@ -75,6 +78,7 @@ export default function ProductDetail() {
         setError(null)
         setLoadedId(id)
         setActiveImageIndex(0)
+        setActiveVideoIndex(0)
       })
       .catch((err) => {
         if (cancelled) return
@@ -87,6 +91,25 @@ export default function ProductDetail() {
     }
   }, [id])
 
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return
+    if (!product?.id) return
+    let cancelled = false
+    listProductVideos(product.id)
+      .then((rows) => {
+        if (cancelled) return
+        setVideos(rows)
+        setActiveVideoIndex(0)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setVideos([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [product?.id])
+
   const status = !isSupabaseConfigured()
     ? 'idle'
     : loadedId === id
@@ -96,6 +119,7 @@ export default function ProductDetail() {
       : 'loading'
 
   const activeImageUrl = images[activeImageIndex] ?? images[0] ?? null
+  const activeVideoUrl = videos[activeVideoIndex]?.public_url ?? videos[0]?.public_url ?? null
   const price = Number(product?.price ?? 0)
   const compareAt = product?.compare_at_price == null ? null : Number(product.compare_at_price)
   const hasDiscount = Number.isFinite(price) && Number.isFinite(compareAt) && compareAt > price
@@ -251,6 +275,33 @@ export default function ProductDetail() {
                     <img src={url} alt="" loading="lazy" />
                   </button>
                 ))}
+              </div>
+            ) : null}
+            {activeVideoUrl ? (
+              <div className="mc-product__video">
+                <div className="mc-product__videoWrap">
+                  <video
+                    className="mc-product__vid"
+                    src={activeVideoUrl}
+                    controls
+                    playsInline
+                    preload="metadata"
+                  />
+                </div>
+                {videos.length > 1 ? (
+                  <div className="mc-product__videoTabs" role="tablist" aria-label="Vidéos produit">
+                    {videos.map((v, idx) => (
+                      <button
+                        key={String(v.id ?? `${v.public_url}-${idx}`)}
+                        type="button"
+                        className={`mc-videoTab${idx === activeVideoIndex ? ' is-active' : ''}`}
+                        onClick={() => setActiveVideoIndex(idx)}
+                      >
+                        Vidéo {idx + 1}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </MotionDiv>
