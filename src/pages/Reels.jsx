@@ -11,19 +11,32 @@ const SHOW_DEBUG_UI =
   String(import.meta?.env?.VITE_DEBUG_UI ?? '') === '1' ||
   (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1') ||
   (typeof window !== 'undefined' && window.localStorage?.getItem('mc_debug_ui') === '1')
-const DEBUG_LOG = SHOW_DEBUG_UI
 
 export default function Reels() {
   const [status, setStatus] = useState(() => (isSupabaseConfigured() ? 'loading' : 'idle'))
   const [error, setError] = useState(null)
   const [items, setItems] = useState([])
   const [debugInfo, setDebugInfo] = useState({})
+  const [mutedById, setMutedById] = useState({})
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.matchMedia?.('(hover: hover) and (pointer: fine)')?.matches ?? false
+  })
   const containerRef = useRef(null)
   const videoRefs = useRef(new Map())
 
   useEffect(() => {
-    if (!DEBUG_LOG) return
-    console.log('[MaisonChrono][Reels] mount', { supabaseConfigured: isSupabaseConfigured() })
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(hover: hover) and (pointer: fine)')
+    function onChange(e) {
+      setIsDesktop(Boolean(e.matches))
+    }
+    if (typeof mq.addEventListener === 'function') mq.addEventListener('change', onChange)
+    else if (typeof mq.addListener === 'function') mq.addListener(onChange)
+    return () => {
+      if (typeof mq.removeEventListener === 'function') mq.removeEventListener('change', onChange)
+      else if (typeof mq.removeListener === 'function') mq.removeListener(onChange)
+    }
   }, [])
 
   useEffect(() => {
@@ -32,17 +45,12 @@ export default function Reels() {
     listReels()
       .then((rows) => {
         if (cancelled) return
-        if (DEBUG_LOG) console.log('[MaisonChrono][Reels] ok', rows.length)
-        if (DEBUG_LOG) {
-          console.log('[MaisonChrono][Reels] urls sample', rows.slice(0, 5).map((r) => r.public_url))
-        }
         setItems(rows)
         setError(null)
         setStatus('success')
       })
       .catch((e) => {
         if (cancelled) return
-        if (DEBUG_LOG) console.log('[MaisonChrono][Reels] error', e)
         setError(e)
         setStatus('error')
       })
@@ -93,13 +101,11 @@ export default function Reels() {
   }, [safeItems])
 
   useEffect(() => {
-    if (!DEBUG_LOG) return
-    console.log('[MaisonChrono][Reels] render', { status, safeCount: safeItems.length })
-  }, [status, safeItems.length])
-
-  useEffect(() => {
     const root = containerRef.current
     if (!root) return
+
+    const observerRoot = isDesktop ? null : root
+    const thresholds = isDesktop ? [0, 0.1] : [0, 0.65, 1]
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -109,14 +115,15 @@ export default function Reels() {
           if (!id) continue
           const video = videoRefs.current.get(id)
           if (!video) continue
-          if (entry.isIntersecting && entry.intersectionRatio >= 0.65) {
-            video.play().catch(() => {})
-          } else {
-            video.pause()
+          if (isDesktop) {
+            if (!entry.isIntersecting || entry.intersectionRatio < 0.1) video.pause()
+            continue
           }
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.65) video.play().catch(() => {})
+          else video.pause()
         }
       },
-      { root, threshold: [0, 0.65, 1] },
+      { root: observerRoot, threshold: thresholds },
     )
 
     for (const section of root.querySelectorAll('[data-reel-id]')) {
@@ -124,7 +131,16 @@ export default function Reels() {
     }
 
     return () => observer.disconnect()
-  }, [safeItems])
+  }, [safeItems, isDesktop])
+
+  function toggleMute(id) {
+    setMutedById((prev) => {
+      const next = { ...prev }
+      const defaultMuted = isDesktop ? false : true
+      next[id] = !(prev[id] ?? defaultMuted)
+      return next
+    })
+  }
 
   return (
     <div className="mc-reelsWrap">
@@ -152,25 +168,20 @@ export default function Reels() {
             const id = String(it.id ?? it.public_url)
             const productId = it.product_id ?? it.products?.id ?? null
             const productName = it.products?.name ?? ''
+            const muted = mutedById[id] ?? (isDesktop ? false : true)
             return (
               <section key={id} className="mc-reel" data-reel-id={id}>
-                <video
-                  className="mc-reel__video"
-                  src={it.public_url}
-                  muted
-                  playsInline
-                  loop
-                  preload="metadata"
-                  onLoadedMetadata={(e) => {
-                    if (!DEBUG_LOG) return
-                    const v = e.currentTarget
-                    console.log('[MaisonChrono][Reels] video metadata', {
-                      id,
-                      duration: v.duration,
-                      w: v.videoWidth,
-                      h: v.videoHeight,
-                    })
-                    if (SHOW_DEBUG_UI) {
+                <div className="mc-reel__frame">
+                  <video
+                    className="mc-reel__video"
+                    src={it.public_url}
+                    muted={muted}
+                    playsInline
+                    loop
+                    preload="metadata"
+                    onLoadedMetadata={(e) => {
+                      if (!SHOW_DEBUG_UI) return
+                      const v = e.currentTarget
                       setDebugInfo((prev) => ({
                         ...prev,
                         [id]: {
@@ -178,38 +189,112 @@ export default function Reels() {
                           meta: { duration: v.duration, w: v.videoWidth, h: v.videoHeight },
                         },
                       }))
+                    }}
+                    onError={(e) => {
+                      const v = e.currentTarget
+                      const payload = {
+                        id,
+                        src: v.currentSrc,
+                        code: v.error?.code ?? null,
+                        networkState: v.networkState,
+                        readyState: v.readyState,
+                      }
+                      if (SHOW_DEBUG_UI) {
+                        setDebugInfo((prev) => ({
+                          ...prev,
+                          [id]: {
+                            ...(prev[id] ?? {}),
+                            error: payload,
+                          },
+                        }))
+                      }
+                    }}
+                    ref={(node) => {
+                      if (!node) videoRefs.current.delete(id)
+                      else videoRefs.current.set(id, node)
+                    }}
+                    onMouseEnter={
+                      isDesktop
+                        ? (e) => {
+                            e.currentTarget.play().catch(() => {
+                              setMutedById((prev) => ({ ...prev, [id]: true }))
+                              e.currentTarget.muted = true
+                              e.currentTarget.play().catch(() => {})
+                            })
+                          }
+                        : undefined
                     }
-                  }}
-                  onError={(e) => {
-                    const v = e.currentTarget
-                    const payload = {
-                      id,
-                      src: v.currentSrc,
-                      code: v.error?.code ?? null,
-                      networkState: v.networkState,
-                      readyState: v.readyState,
+                    onMouseLeave={
+                      isDesktop
+                        ? (e) => {
+                            e.currentTarget.pause()
+                          }
+                        : undefined
                     }
-                    if (DEBUG_LOG) console.log('[MaisonChrono][Reels] video error', payload)
-                    if (SHOW_DEBUG_UI) {
-                      setDebugInfo((prev) => ({
-                        ...prev,
-                        [id]: {
-                          ...(prev[id] ?? {}),
-                          error: payload,
-                        },
-                      }))
+                    onFocus={
+                      isDesktop
+                        ? (e) => {
+                            e.currentTarget.play().catch(() => {})
+                          }
+                        : undefined
                     }
-                  }}
-                  ref={(node) => {
-                    if (!node) videoRefs.current.delete(id)
-                    else videoRefs.current.set(id, node)
-                  }}
+                    onBlur={
+                      isDesktop
+                        ? (e) => {
+                            e.currentTarget.pause()
+                          }
+                        : undefined
+                    }
+                    onClick={(e) => {
+                      const v = e.currentTarget
+                      if (v.paused) v.play().catch(() => {})
+                      else v.pause()
+                    }}
+                  />
+                </div>
+                <button
+                  className="mc-reel__soundBtn"
+                  type="button"
+                  aria-label={muted ? 'Activer le son' : 'Couper le son'}
+                  aria-pressed={!muted}
                   onClick={(e) => {
-                    const v = e.currentTarget
-                    if (v.paused) v.play().catch(() => {})
-                    else v.pause()
+                    e.preventDefault()
+                    e.stopPropagation()
+                    toggleMute(id)
                   }}
-                />
+                >
+                  {muted ? (
+                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                      <path
+                        d="M3.5 8.2v3.6h2.6l3.4 2.7V5.5L6.1 8.2H3.5Z"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M12.8 7.2 16.8 13.2M16.8 7.2 12.8 13.2"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                      <path
+                        d="M3.5 8.2v3.6h2.6l3.4 2.7V5.5L6.1 8.2H3.5Z"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M13.3 6.7a4.6 4.6 0 0 1 0 6.6"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  )}
+                </button>
                 <div className="mc-reel__meta">
                   {productId ? (
                     <Link className="mc-reel__link" to={`/produit/${productId}`}>

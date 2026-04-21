@@ -37,6 +37,11 @@ export default function Layout({ children }) {
   }, [location.pathname, location.search])
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }, [location.pathname, location.search])
+
+  useEffect(() => {
     if (!isSearchOpen) return
     const t = window.setTimeout(() => {
       searchRef.current?.focus?.()
@@ -118,7 +123,7 @@ export default function Layout({ children }) {
                 />
               </svg>
             </NavLink>
-            <button className="mc-action" type="button" aria-label="Favoris">
+            <NavLink className="mc-action" to="/favoris" aria-label="Favoris">
               <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                 <path
                   d="M10 17.2s-6.6-4.1-8-8.1C.9 6.1 2.5 3.6 5.2 3.2c1.6-.2 3.1.6 3.8 1.8.7-1.2 2.2-2 3.8-1.8 2.7.4 4.3 2.9 3.2 5.9-1.4 4-8 8.1-8 8.1Z"
@@ -127,7 +132,7 @@ export default function Layout({ children }) {
                   strokeLinejoin="round"
                 />
               </svg>
-            </button>
+            </NavLink>
             <button className="mc-action" type="button" aria-label="Panier">
               <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                 <path

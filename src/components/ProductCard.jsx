@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 
+import { useFavorites } from '../lib/favorites.js'
+
 const numberFormatter = new Intl.NumberFormat('fr-FR', {
   maximumFractionDigits: 0,
 })
@@ -13,6 +15,7 @@ function formatDh(value) {
 
 export default function ProductCard({ product, index = 0 }) {
   const MotionArticle = motion.article
+  const { isFavorite, toggleFavorite } = useFavorites()
   const imageUrl = product?.images?.[0] ?? null
   const brandName = product?.brands?.name ?? ''
   const categoryName = product?.categories?.name ?? ''
@@ -20,6 +23,13 @@ export default function ProductCard({ product, index = 0 }) {
   const compareAt = product?.compare_at_price == null ? null : Number(product.compare_at_price)
   const hasDiscount = Number.isFinite(price) && Number.isFinite(compareAt) && compareAt > price
   const discountPercent = hasDiscount ? Math.round(((compareAt - price) / compareAt) * 100) : null
+  const favorite = isFavorite(product?.id)
+
+  function onFavoriteClick(e) {
+    e.preventDefault()
+    e.stopPropagation()
+    toggleFavorite(product)
+  }
 
   return (
     <MotionArticle
@@ -32,6 +42,23 @@ export default function ProductCard({ product, index = 0 }) {
       <Link to={`/produit/${product.id}`} className="mc-card__link">
         <div className="mc-card__media" aria-hidden="true">
           {discountPercent ? <div className="mc-discountBadge">-{discountPercent}%</div> : null}
+          <button
+            className={`mc-card__favBtn${favorite ? ' is-active' : ''}`}
+            type="button"
+            aria-label={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            aria-pressed={favorite}
+            onClick={onFavoriteClick}
+          >
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path
+                d="M10 17.2s-6.6-4.1-8-8.1C.9 6.1 2.5 3.6 5.2 3.2c1.6-.2 3.1.6 3.8 1.8.7-1.2 2.2-2 3.8-1.8 2.7.4 4.3 2.9 3.2 5.9-1.4 4-8 8.1-8 8.1Z"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinejoin="round"
+                fill={favorite ? 'currentColor' : 'none'}
+              />
+            </svg>
+          </button>
           {imageUrl ? (
             <img src={imageUrl} alt="" loading="lazy" className="mc-card__img" />
           ) : (

@@ -9,6 +9,7 @@ import ProductDetail from './pages/ProductDetail.jsx'
 import Reels from './pages/Reels.jsx'
 import Contact from './pages/Contact.jsx'
 import About from './pages/About.jsx'
+import Favorites from './pages/Favorites.jsx'
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/catalogue" element={<Catalog />} />
           <Route path="/produit/:id" element={<ProductDetail />} />
+          <Route path="/favoris" element={<Favorites />} />
           <Route path="/reels" element={<Reels />} />
           <Route path="/a-propos" element={<About />} />
           <Route path="/contact" element={<Contact />} />

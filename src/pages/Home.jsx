@@ -1,12 +1,22 @@
 import { motion } from 'framer-motion'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import Notice from '../components/Notice.jsx'
 import ProductCard from '../components/ProductCard.jsx'
-import hero1Img from '../assets/hero1.png'
+import actionAventureVideo from '../assets/Génération_Vidéo_Montre_Action_Aventure.mp4'
+import lifestyleUrbainVideo from '../assets/Vidéo_Lifestyle_Urbain_Montre_en_Action.mp4'
+import luxePresentationVideo from '../assets/Vidéo_de_présentation_de_montre_de_luxe.mp4'
+import video1078589612004641 from '../assets/video-1078589612004641.mp4'
 import { listProducts } from '../lib/api/catalog.js'
 import { getSupabaseConfig, isSupabaseConfigured } from '../lib/supabaseClient.js'
+
+const HERO_VIDEOS = [
+  luxePresentationVideo,
+  lifestyleUrbainVideo,
+  actionAventureVideo,
+  video1078589612004641,
+]
 
 const ACCROCHES = [
   'Le luxe à votre portée.',
@@ -180,7 +190,9 @@ export default function Home() {
   const MotionDiv = motion.div
   const MotionSection = motion.section
   const supabaseConfig = useMemo(() => getSupabaseConfig(), [])
+  const heroVideoRef = useRef(null)
   const [accrocheIndex, setAccrocheIndex] = useState(0)
+  const [heroVideoIndex, setHeroVideoIndex] = useState(0)
   const [products, setProducts] = useState([])
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(null)
@@ -226,6 +238,20 @@ export default function Home() {
     return list.slice(0, 12)
   }, [products])
 
+  const heroVideoSrc = HERO_VIDEOS[heroVideoIndex % HERO_VIDEOS.length]
+
+  useEffect(() => {
+    const video = heroVideoRef.current
+    if (!video) return
+    try {
+      video.load()
+      const p = video.play()
+      if (p && typeof p.catch === 'function') p.catch(() => {})
+    } catch {
+      null
+    }
+  }, [heroVideoSrc])
+
   return (
     <div className="mc-stack">
       {!isSupabaseConfigured() ? (
@@ -248,7 +274,17 @@ export default function Home() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
       >
-        <img className="mc-heroBanner__img" src={hero1Img} alt="" loading="eager" />
+        <video
+          className="mc-heroBanner__video"
+          src={heroVideoSrc}
+          muted
+          playsInline
+          preload="auto"
+          onEnded={() => setHeroVideoIndex((i) => (i + 1) % HERO_VIDEOS.length)}
+          onError={() => setHeroVideoIndex((i) => (i + 1) % HERO_VIDEOS.length)}
+          autoPlay
+          ref={heroVideoRef}
+        />
       </MotionSection>
 
       <MotionSection
