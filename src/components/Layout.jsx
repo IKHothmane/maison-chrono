@@ -28,6 +28,7 @@ export default function Layout({ children }) {
   const navigate = useNavigate()
   const location = useLocation()
   const searchRef = useRef(null)
+  const newsletterRef = useRef(null)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const urlQuery = useMemo(() => {
     if (!(location.pathname === '/' || location.pathname.startsWith('/catalogue'))) return ''
@@ -58,6 +59,15 @@ export default function Layout({ children }) {
     const q = String(searchRef.current?.value ?? '').trim()
     navigate(q ? `/catalogue?q=${encodeURIComponent(q)}` : '/catalogue')
     setIsSearchOpen(false)
+  }
+
+  function submitNewsletter(e) {
+    e.preventDefault()
+    const email = String(newsletterRef.current?.value ?? '').trim()
+    if (!email) return
+    const url = `https://wa.me/212691567246?text=${encodeURIComponent(`Newsletter: ${email}`)}`
+    window.open(url, '_blank', 'noopener,noreferrer')
+    if (newsletterRef.current) newsletterRef.current.value = ''
   }
 
   const MotionDiv = motion.div
@@ -253,14 +263,26 @@ export default function Layout({ children }) {
         <div className="mc-footer__main">
           <div className="mc-container mc-footer__grid">
             <div className="mc-footer__brand">
-              <div className="mc-footer__logo">Maison Chrono</div>
-              <div className="mc-footer__tag">Montres d'exception</div>
-              <div className="mc-footer__newsTitle">Newsletter</div>
-              <div className="mc-footer__newsText">
+              <NavLink className="mc-footer__logo" to="/">
+                Maison Chrono
+              </NavLink>
+              <NavLink className="mc-footer__tag" to="/">
+                Montres d'exception
+              </NavLink>
+              <a className="mc-footer__newsTitle" href="/contact">
+                Newsletter
+              </a>
+              <a className="mc-footer__newsText" href="/contact">
                 Inscrivez-vous pour recevoir les nouveautés et offres exclusives.
-              </div>
-              <form className="mc-footer__news" onSubmit={(e) => e.preventDefault()}>
-                <input className="mc-input" placeholder="Votre adresse email" type="email" required />
+              </a>
+              <form className="mc-footer__news" onSubmit={submitNewsletter}>
+                <input
+                  className="mc-input"
+                  placeholder="Votre adresse email"
+                  type="email"
+                  ref={newsletterRef}
+                  required
+                />
                 <button className="mc-btn mc-btn--primary" type="submit">
                   OK
                 </button>
@@ -279,7 +301,9 @@ export default function Layout({ children }) {
             </div>
 
             <div className="mc-footer__col">
-              <div className="mc-footer__colTitle">Maison</div>
+              <a className="mc-footer__colTitle" href="/a-propos">
+                Maison
+              </a>
               <a className="mc-footer__link" href="/a-propos">
                 À propos
               </a>
@@ -292,7 +316,9 @@ export default function Layout({ children }) {
             </div>
 
             <div className="mc-footer__col">
-              <div className="mc-footer__colTitle">Services</div>
+              <a className="mc-footer__colTitle" href="/contact">
+                Services
+              </a>
               <a className="mc-footer__link" href="/contact">
                 Demande de renseignement
               </a>
@@ -308,14 +334,16 @@ export default function Layout({ children }) {
             </div>
 
             <div className="mc-footer__col">
-              <div className="mc-footer__colTitle">Sélections</div>
-              <a className="mc-footer__link" href="/catalogue">
+              <a className="mc-footer__colTitle" href="/catalogue">
+                Sélections
+              </a>
+              <a className="mc-footer__link" href="/catalogue?tab=all">
                 Nouveautés
               </a>
-              <a className="mc-footer__link" href="/catalogue">
+              <a className="mc-footer__link" href="/catalogue?tab=promo">
                 Promotions
               </a>
-              <a className="mc-footer__link" href="/catalogue">
+              <a className="mc-footer__link" href="/catalogue?tab=best">
                 Top ventes
               </a>
             </div>

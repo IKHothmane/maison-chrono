@@ -3,9 +3,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import Notice from '../components/Notice.jsx'
-import { getProductById } from '../lib/api/catalog.js'
+import ProductCard from '../components/ProductCard.jsx'
+import { getProductById, listProducts } from '../lib/api/catalog.js'
 import { createInquiry } from '../lib/api/inquiries.js'
-import { listProductVideos } from '../lib/api/videos.js'
 import { isSupabaseConfigured, supabase } from '../lib/supabaseClient.js'
 
 const numberFormatter = new Intl.NumberFormat('fr-FR', {
@@ -13,8 +13,6 @@ const numberFormatter = new Intl.NumberFormat('fr-FR', {
 })
 
 const WHATSAPP_NUMBER = '212691567246'
-const DEBUG = Boolean(import.meta?.env?.DEV) || String(import.meta?.env?.VITE_DEBUG ?? '') === '1'
-const SHOW_DEBUG_UI = DEBUG || String(import.meta?.env?.VITE_DEBUG_UI ?? '') === '1'
 
 function formatDh(value) {
   const n = typeof value === 'number' ? value : Number(value)
@@ -67,12 +65,12 @@ export default function ProductDetail() {
   const [product, setProduct] = useState(null)
   const [error, setError] = useState(null)
   const [loadedId, setLoadedId] = useState(null)
+  const [related, setRelated] = useState([])
+  const [relatedTitle, setRelatedTitle] = useState('')
+  const [relatedError, setRelatedError] = useState(null)
 
   const [activeImageIndex, setActiveImageIndex] = useState(0)
   const images = useMemo(() => product?.images ?? [], [product])
-  const [activeVideoIndex, setActiveVideoIndex] = useState(0)
-  const [videos, setVideos] = useState([])
-  const [videosError, setVideosError] = useState(null)
 
   useEffect(() => {
     if (images.length <= 1) return
@@ -105,7 +103,6 @@ export default function ProductDetail() {
         setError(null)
         setLoadedId(id)
         setActiveImageIndex(0)
-        setActiveVideoIndex(0)
       })
       .catch((err) => {
         if (cancelled) return
@@ -121,25 +118,50 @@ export default function ProductDetail() {
   useEffect(() => {
     if (!isSupabaseConfigured()) return
     if (!product?.id) return
+    const brandId = product?.brands?.id ?? null
+    const categoryId = product?.categories?.id ?? null
+
     let cancelled = false
-    listProductVideos(product.id)
-      .then((rows) => {
-        if (cancelled) return
-        if (DEBUG) console.log('[MaisonChrono][ProductDetail] videos ok', product.id, rows.length)
-        setVideos(rows)
-        setActiveVideoIndex(0)
-        setVideosError(null)
-      })
-      .catch((e) => {
-        if (cancelled) return
-        if (DEBUG) console.log('[MaisonChrono][ProductDetail] videos error', product?.id, e)
-        setVideos([])
-        setVideosError(e)
-      })
+    setRelatedError(null)
+
+    async function loadRelated() {
+      const strategies = [
+        { title: 'Produits similaires', params: brandId && categoryId ? { brandId, categoryId } : null },
+        { title: 'Même marque', params: brandId ? { brandId } : null },
+        { title: 'Même catégorie', params: categoryId ? { categoryId } : null },
+        { title: 'Autres produits', params: {} },
+      ].filter((x) => x.params != null)
+
+      let lastError = null
+      for (const s of strategies) {
+        try {
+          const rows = await listProducts(s.params)
+          const list = (rows ?? []).filter((p) => p?.id && p.id !== product.id).slice(0, 6)
+          if (list.length > 0) {
+            if (!cancelled) {
+              setRelatedTitle(s.title)
+              setRelated(list)
+            }
+            return
+          }
+        } catch (e) {
+          lastError = e
+        }
+      }
+
+      if (!cancelled) {
+        setRelatedTitle('')
+        setRelated([])
+        setRelatedError(lastError)
+      }
+    }
+
+    loadRelated()
+
     return () => {
       cancelled = true
     }
-  }, [product?.id])
+  }, [product?.id, product?.brands?.id, product?.categories?.id])
 
   const status = !isSupabaseConfigured()
     ? 'idle'
@@ -150,10 +172,10 @@ export default function ProductDetail() {
       : 'loading'
 
   const activeImageUrl = images[activeImageIndex] ?? images[0] ?? null
-  const activeVideoUrl = videos[activeVideoIndex]?.public_url ?? videos[0]?.public_url ?? null
   const price = Number(product?.price ?? 0)
   const compareAt = product?.compare_at_price == null ? null : Number(product.compare_at_price)
   const hasDiscount = Number.isFinite(price) && Number.isFinite(compareAt) && compareAt > price
+  const discountPercent = hasDiscount ? Math.round(((compareAt - price) / compareAt) * 100) : null
   const baseDisplayPrice = promo?.finalPrice ?? price
   const baseHasPromo = promo?.finalPrice != null && promo.finalPrice < price
   const priceOld = baseHasPromo ? price : hasDiscount ? compareAt : null
@@ -296,269 +318,256 @@ export default function ProductDetail() {
       ) : null}
 
       {product && product.id === id ? (
-        <MotionSection
-          className="mc-product"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-        >
-          <MotionDiv
-            className="mc-product__gallery"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+        <div className="mc-stack">
+          <MotionSection
+            className="mc-product"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
           >
-            <div className="mc-product__image">
-              <AnimatePresence mode="wait">
-                {activeImageUrl ? (
-                  <MotionDiv
-                    key={activeImageUrl}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.4 }}
-                    style={{ width: '100%', height: '100%' }}
-                  >
-                    <img src={activeImageUrl} alt="" className="mc-product__img" />
-                  </MotionDiv>
-                ) : (
-                  <div className="mc-product__img mc-product__img--placeholder"></div>
-                )}
-              </AnimatePresence>
-            </div>
-            {images.length > 1 ? (
-              <div className="mc-product__thumbs" role="tablist" aria-label="Images produit">
-                {images.map((url, idx) => (
-                  <button
-                    key={`${url}-${idx}`}
-                    type="button"
-                    className={`mc-thumb${idx === activeImageIndex ? ' is-active' : ''}`}
-                    onClick={() => setActiveImageIndex(idx)}
-                    aria-label={`Image ${idx + 1}`}
-                  >
-                    <img src={url} alt="" loading="lazy" />
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            {activeVideoUrl ? (
-              <div className="mc-product__video">
-                <div className="mc-product__videoWrap">
-                  <video
-                    className="mc-product__vid"
-                    src={activeVideoUrl}
-                    controls
-                    playsInline
-                    preload="metadata"
-                  />
-                </div>
-                {SHOW_DEBUG_UI ? (
-                  <div className="mc-videoDebug">
-                    <div className="mc-muted">URL vidéo: {activeVideoUrl}</div>
-                  </div>
-                ) : null}
-                {videos.length > 1 ? (
-                  <div className="mc-product__videoTabs" role="tablist" aria-label="Vidéos produit">
-                    {videos.map((v, idx) => (
-                      <button
-                        key={String(v.id ?? `${v.public_url}-${idx}`)}
-                        type="button"
-                        className={`mc-videoTab${idx === activeVideoIndex ? ' is-active' : ''}`}
-                        onClick={() => setActiveVideoIndex(idx)}
-                      >
-                        Vidéo {idx + 1}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-            {!activeVideoUrl && videosError ? (
-              <div className="mc-product__video">
-                <div className="mc-muted">Vidéos indisponibles: {String(videosError?.message ?? videosError)}</div>
-              </div>
-            ) : null}
-          </MotionDiv>
-
-          <MotionDiv
-            className="mc-product__info"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.15, ease: [0.4, 0, 0.2, 1] }}
-          >
-            <div className="mc-product__kicker">
-              {product.brands?.name ?? ''}
-              {product.brands?.name && product.categories?.name ? ' · ' : ''}
-              {product.categories?.name ?? ''}
-            </div>
-            <h1 className="mc-product__title">{product.name}</h1>
-            <div className="mc-product__priceRow">
-              <div className="mc-product__price">
-                <div className="mc-priceStack">
-                  <div className="mc-priceNow">{formatDh(baseDisplayPrice)}</div>
-                  {priceOld ? <div className="mc-priceOld">{formatDh(priceOld)}</div> : null}
-                </div>
-              </div>
-              <span className={`mc-badge${product.in_stock ? '' : ' is-muted'}`}>
-                {product.in_stock ? '✓ Disponible' : 'Sur demande'}
-              </span>
-            </div>
-
             <MotionDiv
-              className="mc-panel"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.3 }}
+              className="mc-product__gallery"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
             >
-              <div className="mc-panel__title">Code promo</div>
-              <form className="mc-form" onSubmit={applyPromo}>
-                <div className="mc-form__row">
-                  <label className="mc-field">
-                    <span className="mc-field__label">Code</span>
-                    <input
-                      className="mc-input"
-                      value={promoCode}
-                      onChange={(e) => setPromoCode(e.target.value)}
-                      placeholder="EX: MAISON10"
-                    />
-                  </label>
-                  <button className="mc-btn mc-btn--primary" disabled={promoStatus === 'loading'}>
-                    {promoStatus === 'loading' ? 'Application…' : 'Appliquer'}
-                  </button>
+              <div className="mc-product__image">
+                {discountPercent ? (
+                  <div className="mc-discountBadge mc-discountBadge--lg">-{discountPercent}%</div>
+                ) : null}
+                <AnimatePresence mode="wait">
+                  {activeImageUrl ? (
+                    <MotionDiv
+                      key={activeImageUrl}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.4 }}
+                      style={{ width: '100%', height: '100%' }}
+                    >
+                      <img src={activeImageUrl} alt="" className="mc-product__img" />
+                    </MotionDiv>
+                  ) : (
+                    <div className="mc-product__img mc-product__img--placeholder"></div>
+                  )}
+                </AnimatePresence>
+              </div>
+              {images.length > 1 ? (
+                <div className="mc-product__thumbs" role="tablist" aria-label="Images produit">
+                  {images.map((url, idx) => (
+                    <button
+                      key={`${url}-${idx}`}
+                      type="button"
+                      className={`mc-thumb${idx === activeImageIndex ? ' is-active' : ''}`}
+                      onClick={() => setActiveImageIndex(idx)}
+                      aria-label={`Image ${idx + 1}`}
+                    >
+                      <img src={url} alt="" loading="lazy" />
+                    </button>
+                  ))}
                 </div>
-                {promoStatus === 'success' && promo ? (
-                  <Notice title="Code appliqué" tone="success">
-                    Code <span className="mc-code">{promo.code}</span> activé.
-                  </Notice>
-                ) : null}
-                {promoStatus === 'error' ? (
-                  <Notice title="Code promo" tone="danger">
-                    {String(promoError?.message ?? promoError)}
-                  </Notice>
-                ) : null}
-              </form>
+              ) : null}
             </MotionDiv>
 
-            {product.description ? (
-              <MotionDiv
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.35 }}
-              >
-                <p className="mc-product__desc">{product.description}</p>
-              </MotionDiv>
-            ) : null}
+            <MotionDiv
+              className="mc-product__info"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.15, ease: [0.4, 0, 0.2, 1] }}
+            >
+              <div className="mc-product__kicker">
+                {product.brands?.name ?? ''}
+                {product.brands?.name && product.categories?.name ? ' · ' : ''}
+                {product.categories?.name ?? ''}
+              </div>
+              <h1 className="mc-product__title">{product.name}</h1>
+              <div className="mc-product__priceRow">
+                <div className="mc-product__price">
+                  <div className="mc-priceStack">
+                    <div className="mc-priceNow">{formatDh(baseDisplayPrice)}</div>
+                    {priceOld ? <div className="mc-priceOld">{formatDh(priceOld)}</div> : null}
+                  </div>
+                </div>
+                <span className={`mc-badge${product.in_stock ? '' : ' is-muted'}`}>
+                  {product.in_stock ? '✓ Disponible' : 'Sur demande'}
+                </span>
+              </div>
 
-            {specs.length > 0 ? (
               <MotionDiv
                 className="mc-panel"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.4 }}
+                transition={{ duration: 0.4, delay: 0.3 }}
               >
-                <div className="mc-panel__title">Spécifications</div>
-                <div className="mc-specs">
-                  {specs.map((s, i) => (
-                    <Spec key={s.label} label={s.label} value={s.value} index={i} />
-                  ))}
-                </div>
-              </MotionDiv>
-            ) : null}
-
-            <MotionDiv
-              className="mc-panel"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.5 }}
-            >
-              <div className="mc-panel__title">Demander un renseignement</div>
-
-              {submitStatus === 'success' ? (
-                <Notice title="Demande envoyée" tone="success">
-                  Nous revenons vers vous rapidement.
-                  {inquiryId ? (
-                    <div className="mc-muted">
-                      Référence demande : <span className="mc-code">{inquiryId}</span>
-                    </div>
+                <div className="mc-panel__title">Code promo</div>
+                <form className="mc-form" onSubmit={applyPromo}>
+                  <div className="mc-form__row">
+                    <label className="mc-field">
+                      <span className="mc-field__label">Code</span>
+                      <input
+                        className="mc-input"
+                        value={promoCode}
+                        onChange={(e) => setPromoCode(e.target.value)}
+                        placeholder="EX: MAISON10"
+                      />
+                    </label>
+                    <button className="mc-btn mc-btn--primary" disabled={promoStatus === 'loading'}>
+                      {promoStatus === 'loading' ? 'Application…' : 'Appliquer'}
+                    </button>
+                  </div>
+                  {promoStatus === 'success' && promo ? (
+                    <Notice title="Code appliqué" tone="success">
+                      Code <span className="mc-code">{promo.code}</span> activé.
+                    </Notice>
                   ) : null}
-                </Notice>
+                  {promoStatus === 'error' ? (
+                    <Notice title="Code promo" tone="danger">
+                      {String(promoError?.message ?? promoError)}
+                    </Notice>
+                  ) : null}
+                </form>
+              </MotionDiv>
+
+              {product.description ? (
+                <MotionDiv
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.35 }}
+                >
+                  <p className="mc-product__desc">{product.description}</p>
+                </MotionDiv>
               ) : null}
 
-              {submitStatus === 'error' ? (
-                <Notice title="Envoi impossible" tone="danger">
-                  {String(submitError?.message ?? submitError)}
-                </Notice>
+              {specs.length > 0 ? (
+                <MotionDiv
+                  className="mc-panel"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.4 }}
+                >
+                  <div className="mc-panel__title">Spécifications</div>
+                  <div className="mc-specs">
+                    {specs.map((s, i) => (
+                      <Spec key={s.label} label={s.label} value={s.value} index={i} />
+                    ))}
+                  </div>
+                </MotionDiv>
               ) : null}
 
-              <form className="mc-form" onSubmit={onSubmit}>
-                <div className="mc-form__row">
-                  <label className="mc-field">
-                    <span className="mc-field__label">Nom</span>
-                    <input
-                      className="mc-input"
-                      value={form.name}
-                      onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                      required
-                    />
-                  </label>
-                  <label className="mc-field">
-                    <span className="mc-field__label">Email</span>
-                    <input
-                      className="mc-input"
-                      className="mc-input"
-                      type="email"
-                      value={form.email}
-                      onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                    />
-                  </label>
-                </div>
+              <MotionDiv
+                className="mc-panel"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.5 }}
+              >
+                <div className="mc-panel__title">Demander un renseignement</div>
 
-                <label className="mc-field">
-                  <span className="mc-field__label">Téléphone</span>
-                  <input
-                    className="mc-input"
-                    type="tel"
-                    inputMode="tel"
-                    value={form.phone}
-                    onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                    required
-                  />
-                </label>
+                {submitStatus === 'success' ? (
+                  <Notice title="Demande envoyée" tone="success">
+                    Nous revenons vers vous rapidement.
+                    {inquiryId ? (
+                      <div className="mc-muted">
+                        Référence demande : <span className="mc-code">{inquiryId}</span>
+                      </div>
+                    ) : null}
+                  </Notice>
+                ) : null}
 
-                <div className="mc-form__row">
-                  <label className="mc-field">
-                    <span className="mc-field__label">Ville</span>
-                    <input
-                      className="mc-input"
-                      value={form.city}
-                      onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-                      required
-                    />
-                  </label>
-                  <label className="mc-field">
-                    <span className="mc-field__label">Adresse</span>
-                    <input
-                      className="mc-input"
-                      value={form.address}
-                      onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-                      required
-                    />
-                  </label>
-                </div>
-
-                {submitError && submitStatus !== 'error' ? (
-                  <Notice title="Formulaire" tone="danger">
+                {submitStatus === 'error' ? (
+                  <Notice title="Envoi impossible" tone="danger">
                     {String(submitError?.message ?? submitError)}
                   </Notice>
                 ) : null}
 
-                <button className="mc-btn mc-btn--primary" disabled={submitStatus === 'loading'}>
-                  {submitStatus === 'loading' ? 'Envoi…' : 'Envoyer la demande'}
-                </button>
-              </form>
+                <form className="mc-form" onSubmit={onSubmit}>
+                  <div className="mc-form__row">
+                    <label className="mc-field">
+                      <span className="mc-field__label">Nom</span>
+                      <input
+                        className="mc-input"
+                        value={form.name}
+                        onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                        required
+                      />
+                    </label>
+                    <label className="mc-field">
+                      <span className="mc-field__label">Email</span>
+                      <input
+                        className="mc-input"
+                        type="email"
+                        value={form.email}
+                        onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                      />
+                    </label>
+                  </div>
+
+                  <label className="mc-field">
+                    <span className="mc-field__label">Téléphone</span>
+                    <input
+                      className="mc-input"
+                      type="tel"
+                      inputMode="tel"
+                      value={form.phone}
+                      onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                      required
+                    />
+                  </label>
+
+                  <div className="mc-form__row">
+                    <label className="mc-field">
+                      <span className="mc-field__label">Ville</span>
+                      <input
+                        className="mc-input"
+                        value={form.city}
+                        onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                        required
+                      />
+                    </label>
+                    <label className="mc-field">
+                      <span className="mc-field__label">Adresse</span>
+                      <input
+                        className="mc-input"
+                        value={form.address}
+                        onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                        required
+                      />
+                    </label>
+                  </div>
+
+                  {submitError && submitStatus !== 'error' ? (
+                    <Notice title="Formulaire" tone="danger">
+                      {String(submitError?.message ?? submitError)}
+                    </Notice>
+                  ) : null}
+
+                  <button className="mc-btn mc-btn--primary" disabled={submitStatus === 'loading'}>
+                    {submitStatus === 'loading' ? 'Envoi…' : 'Envoyer la demande'}
+                  </button>
+                </form>
+              </MotionDiv>
             </MotionDiv>
-          </MotionDiv>
-        </MotionSection>
+          </MotionSection>
+
+          {relatedError ? (
+            <Notice title="Produits similaires indisponibles" tone="danger">
+              {String(relatedError?.message ?? relatedError)}
+            </Notice>
+          ) : null}
+          {related.length > 0 ? (
+            <section className="mc-section">
+              <div className="mc-section__head">
+                <h2 className="mc-section__title">{relatedTitle || 'Produits similaires'}</h2>
+              </div>
+              <div className="mc-grid mc-grid--catalog">
+                {related.map((p, idx) => (
+                  <ProductCard key={p.id} product={p} index={idx} />
+                ))}
+              </div>
+            </section>
+          ) : !relatedError ? (
+            <div className="mc-muted">Aucun autre produit pour le moment.</div>
+          ) : null}
+        </div>
       ) : null}
     </div>
   )

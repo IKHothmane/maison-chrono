@@ -1,10 +1,11 @@
 import { motion } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import Notice from '../components/Notice.jsx'
 import ProductCard from '../components/ProductCard.jsx'
 import hero1Img from '../assets/hero1.png'
-import { listCategories, listProducts } from '../lib/api/catalog.js'
+import { listProducts } from '../lib/api/catalog.js'
 import { getSupabaseConfig, isSupabaseConfigured } from '../lib/supabaseClient.js'
 
 const ACCROCHES = [
@@ -19,24 +20,131 @@ const STYLES = [
   {
     title: 'Les Iconiques',
     desc: 'Les modèles légendaires (Submariner, Speedmaster, Tank).',
-    icon: '👑',
+    icon: 'watch',
   },
   {
     title: 'Sport & Performance',
     desc: 'Montres de plongée, chronographes et modèles robustes.',
-    icon: '⚡',
+    icon: 'diver',
   },
   {
     title: 'Classique & Soirée',
     desc: 'Montres habillées, fines et élégantes.',
-    icon: '✨',
+    icon: 'dress',
   },
   {
     title: 'Haute Horlogerie',
     desc: 'Modèles à complications (Tourbillons, Calendriers perpétuels).',
-    icon: '🔮',
+    icon: 'movement',
   },
 ]
+
+function StyleIcon({ name }) {
+  if (name === 'watch') {
+    return (
+      <svg className="mc-styleCard__iconSvg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M9 3h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M9 21h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <path
+          d="M12 19a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z"
+          stroke="currentColor"
+          strokeWidth="1.6"
+        />
+        <path d="M12 9v3.2l2.2 1.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M19.2 12h1.3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    )
+  }
+  if (name === 'diver') {
+    return (
+      <svg className="mc-styleCard__iconSvg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path
+          d="M12 19a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z"
+          stroke="currentColor"
+          strokeWidth="1.6"
+        />
+        <path
+          d="M12 7.5v2.5M16.5 9l-1.7 1.1M7.5 9l1.7 1.1"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+        <path
+          d="M12 12.2v2.8l-2.2 1.2"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+        <path
+          d="M10 3h4"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+        <path
+          d="M10 21h4"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+        <path
+          d="M12 4.8c.7 0 1.4.1 2 .3"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+        <path
+          d="M9.8 5.1c.6-.2 1.4-.3 2.2-.3"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+      </svg>
+    )
+  }
+  if (name === 'dress') {
+    return (
+      <svg className="mc-styleCard__iconSvg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M9.5 4h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M9.5 20h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <path
+          d="M9 6.2c0-1.2 1-2.2 2.2-2.2h1.6C14 4 15 5 15 6.2v11.6c0 1.2-1 2.2-2.2 2.2h-1.6C10 20 9 19 9 17.8V6.2Z"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M12 9.2v3l1.7 1"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+      </svg>
+    )
+  }
+  return (
+    <svg className="mc-styleCard__iconSvg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 19a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <path d="M9.5 3h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M9.5 21h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path
+        d="M12 14.8a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <path
+        d="M12 8.3v-1M12 16.7v-1M8.3 12h-1M16.7 12h-1M9.7 9.7l-.7-.7M15 15l-.7-.7M9.7 14.3l-.7.7M15 9l-.7.7"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -73,7 +181,6 @@ export default function Home() {
   const MotionSection = motion.section
   const supabaseConfig = useMemo(() => getSupabaseConfig(), [])
   const [accrocheIndex, setAccrocheIndex] = useState(0)
-  const [categories, setCategories] = useState([])
   const [products, setProducts] = useState([])
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(null)
@@ -89,10 +196,9 @@ export default function Home() {
     if (!isSupabaseConfigured()) return
     let cancelled = false
 
-    Promise.all([listCategories(), listProducts()])
-      .then(([cats, prods]) => {
+    listProducts()
+      .then((prods) => {
         if (cancelled) return
-        setCategories(cats ?? [])
         setProducts(prods ?? [])
         setError(null)
         setLoaded(true)
@@ -110,16 +216,14 @@ export default function Home() {
 
   const status = !isSupabaseConfigured() ? 'idle' : loaded ? (error ? 'error' : 'success') : 'loading'
 
-  const productsByCategoryId = useMemo(() => {
-    const map = new Map()
-    for (const p of products) {
-      const catId = p?.categories?.id ?? null
-      if (!catId) continue
-      const list = map.get(catId) ?? []
-      list.push(p)
-      map.set(catId, list)
-    }
-    return map
+  const latestProducts = useMemo(() => {
+    const list = Array.isArray(products) ? [...products] : []
+    list.sort((a, b) => {
+      const ta = a?.created_at ? new Date(a.created_at).getTime() : 0
+      const tb = b?.created_at ? new Date(b.created_at).getTime() : 0
+      return tb - ta
+    })
+    return list.slice(0, 12)
   }, [products])
 
   return (
@@ -187,7 +291,9 @@ export default function Home() {
         >
           {STYLES.map((s) => (
             <MotionDiv key={s.title} className="mc-styleCard" variants={itemVariants}>
-              <div style={{ fontSize: '28px', marginBottom: '10px' }}>{s.icon}</div>
+              <div className="mc-styleCard__icon" aria-hidden="true">
+                <StyleIcon name={s.icon} />
+              </div>
               <div className="mc-styleCard__title">{s.title}</div>
               <div className="mc-styleCard__desc">{s.desc}</div>
             </MotionDiv>
@@ -204,28 +310,29 @@ export default function Home() {
 
       {status === 'success' ? (
         <div className="mc-stack">
-          {categories
-            .map((c) => ({ category: c, products: productsByCategoryId.get(c.id) ?? [] }))
-            .filter((x) => x.products.length > 0)
-            .map(({ category, products: catProducts }) => (
-              <MotionSection
-                key={category.id}
-                className="mc-section"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-60px' }}
-                transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-              >
-                <div className="mc-section__head">
-                  <h2 className="mc-section__title">{category.name}</h2>
-                </div>
-                <div className="mc-grid">
-                  {catProducts.map((p, idx) => (
-                    <ProductCard key={p.id} product={p} index={idx} />
-                  ))}
-                </div>
-              </MotionSection>
-            ))}
+          <MotionSection
+            className="mc-section"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-60px' }}
+            transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+          >
+            <div className="mc-section__head">
+              <h2 className="mc-section__title">Nouveautés</h2>
+              <Link className="mc-linkbtn" to="/catalogue">
+                Voir tout
+              </Link>
+            </div>
+            {latestProducts.length > 0 ? (
+              <div className="mc-grid">
+                {latestProducts.map((p, idx) => (
+                  <ProductCard key={p.id} product={p} index={idx} />
+                ))}
+              </div>
+            ) : (
+              <div className="mc-muted">Aucun produit.</div>
+            )}
+          </MotionSection>
         </div>
       ) : null}
     </div>

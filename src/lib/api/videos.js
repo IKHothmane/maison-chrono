@@ -21,13 +21,22 @@ export async function listReels() {
   log('listReels start')
   const { data, error } = await supabase
     .from('product_videos')
-    .select('id, public_url, product_id, products(id, name)')
+    .select('id, public_url, storage_path, product_id, products(id, name)')
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false })
 
   if (error) throw error
   log('listReels ok', (data ?? []).length)
-  return (data ?? []).filter((r) => r?.public_url)
+  return (data ?? [])
+    .map((r) => {
+      const publicUrl = String(r?.public_url ?? '').trim()
+      if (publicUrl) return { ...r, public_url: publicUrl }
+      const storagePath = String(r?.storage_path ?? '').trim()
+      if (!storagePath) return { ...r, public_url: '' }
+      const { data: urlData } = supabase.storage.from('product-videos').getPublicUrl(storagePath)
+      return { ...r, public_url: String(urlData?.publicUrl ?? '') }
+    })
+    .filter((r) => r?.public_url)
 }
 
 export async function listProductVideos(productId) {
@@ -35,12 +44,21 @@ export async function listProductVideos(productId) {
   log('listProductVideos start', productId)
   const { data, error } = await supabase
     .from('product_videos')
-    .select('id, public_url')
+    .select('id, public_url, storage_path')
     .eq('product_id', productId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true })
 
   if (error) throw error
   log('listProductVideos ok', (data ?? []).length)
-  return (data ?? []).filter((r) => r?.public_url)
+  return (data ?? [])
+    .map((r) => {
+      const publicUrl = String(r?.public_url ?? '').trim()
+      if (publicUrl) return { ...r, public_url: publicUrl }
+      const storagePath = String(r?.storage_path ?? '').trim()
+      if (!storagePath) return { ...r, public_url: '' }
+      const { data: urlData } = supabase.storage.from('product-videos').getPublicUrl(storagePath)
+      return { ...r, public_url: String(urlData?.publicUrl ?? '') }
+    })
+    .filter((r) => r?.public_url)
 }

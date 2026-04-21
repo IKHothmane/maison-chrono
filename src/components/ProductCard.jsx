@@ -19,6 +19,7 @@ export default function ProductCard({ product, index = 0 }) {
   const price = Number(product?.price ?? 0)
   const compareAt = product?.compare_at_price == null ? null : Number(product.compare_at_price)
   const hasDiscount = Number.isFinite(price) && Number.isFinite(compareAt) && compareAt > price
+  const discountPercent = hasDiscount ? Math.round(((compareAt - price) / compareAt) * 100) : null
 
   return (
     <MotionArticle
@@ -30,6 +31,7 @@ export default function ProductCard({ product, index = 0 }) {
     >
       <Link to={`/produit/${product.id}`} className="mc-card__link">
         <div className="mc-card__media" aria-hidden="true">
+          {discountPercent ? <div className="mc-discountBadge">-{discountPercent}%</div> : null}
           {imageUrl ? (
             <img src={imageUrl} alt="" loading="lazy" className="mc-card__img" />
           ) : (

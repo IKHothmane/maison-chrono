@@ -3,13 +3,13 @@ import { useSearchParams } from 'react-router-dom'
 
 import Notice from '../components/Notice.jsx'
 import ProductCard from '../components/ProductCard.jsx'
-import { listProducts } from '../lib/api/catalog.js'
+import { listCategories, listProducts } from '../lib/api/catalog.js'
 import { isSupabaseConfigured } from '../lib/supabaseClient.js'
 
 export default function Catalog() {
   const [searchParams] = useSearchParams()
+  const [categories, setCategories] = useState([])
   const [products, setProducts] = useState([])
-  const [page, setPage] = useState(1)
 
   const [error, setError] = useState(null)
   const [loadedKey, setLoadedKey] = useState(null)
@@ -28,9 +28,10 @@ export default function Catalog() {
     if (!isSupabaseConfigured()) return
     let cancelled = false
 
-    listProducts(query)
-      .then((data) => {
+    Promise.all([listCategories(), listProducts(query)])
+      .then(([cats, data]) => {
         if (cancelled) return
+        setCategories(cats ?? [])
         setProducts(data)
         setError(null)
         setLoadedKey(JSON.stringify(query))
@@ -56,14 +57,33 @@ export default function Catalog() {
         : 'success'
       : 'loading'
 
-  const pageSize = 24
+  const productsByCategoryId = useMemo(() => {
+    const map = new Map()
+    for (const p of products) {
+      const catId = p?.categories?.id ?? null
+      if (!catId) continue
+      const list = map.get(catId) ?? []
+      list.push(p)
+      map.set(catId, list)
+    }
+    for (const [catId, list] of map.entries()) {
+      list.sort((a, b) => {
+        const ta = a?.created_at ? new Date(a.created_at).getTime() : 0
+        const tb = b?.created_at ? new Date(b.created_at).getTime() : 0
+        return tb - ta
+      })
+      map.set(catId, list)
+    }
+    return map
+  }, [products])
+
+  const sections = useMemo(() => {
+    return (categories ?? [])
+      .map((c) => ({ category: c, products: productsByCategoryId.get(c.id) ?? [] }))
+      .filter((x) => x.products.length > 0)
+  }, [categories, productsByCategoryId])
+
   const total = products.length
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
-  const safePage = Math.min(page, totalPages)
-  const pagedProducts = useMemo(() => {
-    const start = (safePage - 1) * pageSize
-    return products.slice(start, start + pageSize)
-  }, [safePage, products])
 
   return (
     <div className="mc-catalog">
@@ -83,37 +103,20 @@ export default function Catalog() {
 
       {status === 'success' && total === 0 ? <div className="mc-muted">Aucun résultat.</div> : null}
 
-      {pagedProducts.length > 0 ? (
-        <section className="mc-section">
-          <div className="mc-grid mc-grid--catalog">
-            {pagedProducts.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {status === 'success' && totalPages > 1 ? (
-        <div className="mc-pagination">
-          <button
-            className="mc-btn mc-btn--ghost"
-            type="button"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={safePage <= 1}
-          >
-            Précédent
-          </button>
-          <div className="mc-muted">
-            Page {safePage} / {totalPages}
-          </div>
-          <button
-            className="mc-btn mc-btn--ghost"
-            type="button"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={safePage >= totalPages}
-          >
-            Suivant
-          </button>
+      {status === 'success' && sections.length > 0 ? (
+        <div className="mc-stack">
+          {sections.map(({ category, products: catProducts }) => (
+            <section key={category.id} className="mc-section">
+              <div className="mc-section__head">
+                <h2 className="mc-section__title">{category.name}</h2>
+              </div>
+              <div className="mc-grid mc-grid--catalog">
+                {catProducts.map((p) => (
+                  <ProductCard key={p.id} product={p} />
+                ))}
+              </div>
+            </section>
+          ))}
         </div>
       ) : null}
     </div>

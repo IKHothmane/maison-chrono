@@ -6,7 +6,12 @@ import { listReels } from '../lib/api/videos.js'
 import { isSupabaseConfigured } from '../lib/supabaseClient.js'
 
 const DEBUG = Boolean(import.meta?.env?.DEV) || String(import.meta?.env?.VITE_DEBUG ?? '') === '1'
-const SHOW_DEBUG_UI = DEBUG || String(import.meta?.env?.VITE_DEBUG_UI ?? '') === '1'
+const SHOW_DEBUG_UI =
+  DEBUG ||
+  String(import.meta?.env?.VITE_DEBUG_UI ?? '') === '1' ||
+  (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1') ||
+  (typeof window !== 'undefined' && window.localStorage?.getItem('mc_debug_ui') === '1')
+const DEBUG_LOG = SHOW_DEBUG_UI
 
 export default function Reels() {
   const [status, setStatus] = useState(() => (isSupabaseConfigured() ? 'loading' : 'idle'))
@@ -17,7 +22,7 @@ export default function Reels() {
   const videoRefs = useRef(new Map())
 
   useEffect(() => {
-    if (!DEBUG) return
+    if (!DEBUG_LOG) return
     console.log('[MaisonChrono][Reels] mount', { supabaseConfigured: isSupabaseConfigured() })
   }, [])
 
@@ -27,15 +32,17 @@ export default function Reels() {
     listReels()
       .then((rows) => {
         if (cancelled) return
-        if (DEBUG) console.log('[MaisonChrono][Reels] ok', rows.length)
-        if (DEBUG) console.log('[MaisonChrono][Reels] urls sample', rows.slice(0, 5).map((r) => r.public_url))
+        if (DEBUG_LOG) console.log('[MaisonChrono][Reels] ok', rows.length)
+        if (DEBUG_LOG) {
+          console.log('[MaisonChrono][Reels] urls sample', rows.slice(0, 5).map((r) => r.public_url))
+        }
         setItems(rows)
         setError(null)
         setStatus('success')
       })
       .catch((e) => {
         if (cancelled) return
-        if (DEBUG) console.log('[MaisonChrono][Reels] error', e)
+        if (DEBUG_LOG) console.log('[MaisonChrono][Reels] error', e)
         setError(e)
         setStatus('error')
       })
@@ -86,7 +93,7 @@ export default function Reels() {
   }, [safeItems])
 
   useEffect(() => {
-    if (!DEBUG) return
+    if (!DEBUG_LOG) return
     console.log('[MaisonChrono][Reels] render', { status, safeCount: safeItems.length })
   }, [status, safeItems.length])
 
@@ -155,7 +162,7 @@ export default function Reels() {
                   loop
                   preload="metadata"
                   onLoadedMetadata={(e) => {
-                    if (!DEBUG) return
+                    if (!DEBUG_LOG) return
                     const v = e.currentTarget
                     console.log('[MaisonChrono][Reels] video metadata', {
                       id,
@@ -182,7 +189,7 @@ export default function Reels() {
                       networkState: v.networkState,
                       readyState: v.readyState,
                     }
-                    if (DEBUG) console.log('[MaisonChrono][Reels] video error', payload)
+                    if (DEBUG_LOG) console.log('[MaisonChrono][Reels] video error', payload)
                     if (SHOW_DEBUG_UI) {
                       setDebugInfo((prev) => ({
                         ...prev,
