@@ -49,3 +49,6 @@ export async function createInquiry({ productId, name, email, phone, city, addre
 
   return { id: null }
 }
+
+
+
