@@ -9,6 +9,7 @@ import lifestyleUrbainVideo from '../assets/Vidéo_Lifestyle_Urbain_Montre_en_Ac
 import luxePresentationVideo from '../assets/Vidéo_de_présentation_de_montre_de_luxe.mp4'
 import video1078589612004641 from '../assets/video-1078589612004641.mp4'
 import { listProducts } from '../lib/api/catalog.js'
+import { listHomeReels } from '../lib/api/videos.js'
 import { getSupabaseConfig, isSupabaseConfigured } from '../lib/supabaseClient.js'
 
 const HERO_VIDEOS = [
@@ -196,6 +197,9 @@ export default function Home() {
   const [products, setProducts] = useState([])
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(null)
+  const [reelsStatus, setReelsStatus] = useState(() => (isSupabaseConfigured() ? 'loading' : 'idle'))
+  const [reelsError, setReelsError] = useState(null)
+  const [reels, setReels] = useState([])
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -226,6 +230,28 @@ export default function Home() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return
+    let cancelled = false
+    listHomeReels()
+      .then((rows) => {
+        if (cancelled) return
+        setReels(rows ?? [])
+        setReelsError(null)
+        setReelsStatus('success')
+      })
+      .catch((e) => {
+        if (cancelled) return
+        setReels([])
+        setReelsError(e)
+        setReelsStatus('error')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const status = !isSupabaseConfigured() ? 'idle' : loaded ? (error ? 'error' : 'success') : 'loading'
 
   const latestProducts = useMemo(() => {
@@ -237,6 +263,11 @@ export default function Home() {
     })
     return list.slice(0, 12)
   }, [products])
+
+  const homeReels = useMemo(() => {
+    const list = Array.isArray(reels) ? reels : []
+    return list.slice(0, 6)
+  }, [reels])
 
   const heroVideoSrc = HERO_VIDEOS[heroVideoIndex % HERO_VIDEOS.length]
 
@@ -307,6 +338,92 @@ export default function Home() {
         </div>
       </MotionSection>
 
+      {status === 'loading' ? <SkeletonGrid /> : null}
+      {status === 'error' ? (
+        <Notice title="Impossible de charger les produits" tone="danger">
+          {String(error?.message ?? error)}
+        </Notice>
+      ) : null}
+
+      {status === 'success' ? (
+        <div className="mc-stack">
+          <MotionSection
+            className="mc-section"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-60px' }}
+            transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+          >
+            <div className="mc-section__head">
+              <h2 className="mc-section__title">Nouveautés</h2>
+              <Link className="mc-linkbtn" to="/catalogue">
+                Voir tout
+              </Link>
+            </div>
+            {latestProducts.length > 0 ? (
+              <div className="mc-grid">
+                {latestProducts.map((p, idx) => (
+                  <ProductCard key={p.id} product={p} index={idx} rotateImages />
+                ))}
+              </div>
+            ) : (
+              <div className="mc-muted">Aucun produit.</div>
+            )}
+          </MotionSection>
+        </div>
+      ) : null}
+
+      {reelsStatus === 'error' ? (
+        <Notice title="Impossible de charger les vidéos" tone="danger">
+          {String(reelsError?.message ?? reelsError)}
+        </Notice>
+      ) : null}
+
+      {reelsStatus === 'success' && homeReels.length > 0 ? (
+        <MotionSection
+          className="mc-section"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-60px' }}
+          transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+        >
+          <div className="mc-section__head">
+            <h2 className="mc-section__title">Vidéos</h2>
+            <Link className="mc-linkbtn" to="/reels">
+              Voir tout
+            </Link>
+          </div>
+          <div className="mc-reels mc-reels--home" aria-label="Vidéos">
+            {homeReels.map((it) => {
+              const id = String(it.id ?? it.public_url)
+              const productId = it.product_id ?? it.products?.id ?? null
+              const productName = it.products?.name ?? ''
+              const productLink = productId ? `/produit/${productId}` : '/reels'
+              return (
+                <section key={id} className="mc-reel">
+                  <div className="mc-reel__frame">
+                    <video
+                      className="mc-reel__video"
+                      src={it.public_url}
+                      muted
+                      playsInline
+                      loop
+                      autoPlay
+                      preload="metadata"
+                    />
+                  </div>
+                  <div className="mc-reel__meta">
+                    <Link className="mc-reel__link" to={productLink}>
+                      {productName ? productName : 'Voir la vidéo'}
+                    </Link>
+                  </div>
+                </section>
+              )
+            })}
+          </div>
+        </MotionSection>
+      ) : null}
+
       <MotionSection
         className="mc-section"
         initial={{ opacity: 0, y: 20 }}
@@ -336,41 +453,6 @@ export default function Home() {
           ))}
         </MotionDiv>
       </MotionSection>
-
-      {status === 'loading' ? <SkeletonGrid /> : null}
-      {status === 'error' ? (
-        <Notice title="Impossible de charger les produits" tone="danger">
-          {String(error?.message ?? error)}
-        </Notice>
-      ) : null}
-
-      {status === 'success' ? (
-        <div className="mc-stack">
-          <MotionSection
-            className="mc-section"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-60px' }}
-            transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-          >
-            <div className="mc-section__head">
-              <h2 className="mc-section__title">Nouveautés</h2>
-              <Link className="mc-linkbtn" to="/catalogue">
-                Voir tout
-              </Link>
-            </div>
-            {latestProducts.length > 0 ? (
-              <div className="mc-grid">
-                {latestProducts.map((p, idx) => (
-                  <ProductCard key={p.id} product={p} index={idx} />
-                ))}
-              </div>
-            ) : (
-              <div className="mc-muted">Aucun produit.</div>
-            )}
-          </MotionSection>
-        </div>
-      ) : null}
     </div>
   )
 }

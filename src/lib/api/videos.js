@@ -29,6 +29,43 @@ export async function listReels() {
     .filter((r) => r?.public_url)
 }
 
+export async function listHomeReels() {
+  ensureSupabase()
+  async function runSelect(selectList, { requireFlag } = {}) {
+    let query = supabase
+      .from('product_videos')
+      .select(selectList)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false })
+    if (requireFlag !== false) query = query.eq('show_on_home', true)
+    const { data, error } = await query
+    if (error) throw error
+    return (data ?? [])
+      .map((r) => {
+        const publicUrl = String(r?.public_url ?? '').trim()
+        if (publicUrl) return { ...r, public_url: publicUrl }
+        const storagePath = String(r?.storage_path ?? '').trim()
+        if (!storagePath) return { ...r, public_url: '' }
+        const { data: urlData } = supabase.storage.from('product-videos').getPublicUrl(storagePath)
+        return { ...r, public_url: String(urlData?.publicUrl ?? '') }
+      })
+      .filter((r) => r?.public_url)
+  }
+
+  try {
+    const list = await runSelect(
+      'id, public_url, storage_path, product_id, products(id, name), show_on_home',
+    )
+    if (list.length > 0) return list
+    return await runSelect('id, public_url, storage_path, product_id, products(id, name)', { requireFlag: false })
+  } catch (e) {
+    if (e?.code === '42703') {
+      return await runSelect('id, public_url, storage_path, product_id, products(id, name)', { requireFlag: false })
+    }
+    throw e
+  }
+}
+
 export async function listProductVideos(productId) {
   ensureSupabase()
   const { data, error } = await supabase

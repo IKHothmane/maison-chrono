@@ -952,6 +952,38 @@
   display: block;
 }
 
+.mc-reels--home {
+  height: auto;
+  overflow-y: hidden;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  display: flex;
+  gap: 12px;
+  padding: 0;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+}
+
+.mc-reels--home .mc-reel {
+  width: 240px;
+  height: 420px;
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  border-radius: var(--mc-radius-lg);
+  overflow: hidden;
+  border: 1px solid rgba(245, 245, 240, 0.08);
+  background: rgba(10, 10, 10, 0.35);
+}
+
+.mc-reels--home .mc-reel__frame {
+  height: 100%;
+}
+
+.mc-reels--home .mc-reel__video {
+  border-radius: 0;
+}
+
 .mc-reels:hover .mc-reel__video {
   cursor: pointer;
 }
@@ -1588,6 +1620,24 @@
 
 .mc-choice input {
   margin: 0;
+}
+
+.mc-choice__main {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mc-choice__title {
+  font-weight: 500;
+}
+
+.mc-choice__price {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mc-muted);
 }
 
 /* ── Drawer ──────────────────────────────────────── */

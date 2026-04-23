@@ -7,52 +7,88 @@ import { isSupabaseConfigured } from '../lib/supabaseClient.js'
 
 const WHATSAPP_NUMBER = '212691567246'
 
-function openWhatsApp(text) {
-  const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`
-  window.open(url, '_blank', 'noopener,noreferrer')
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+}
+
+function createWhatsAppUrl(text) {
+  if (isMobileDevice()) {
+    return `https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(text)}`
+  }
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`
+}
+
+function openWhatsAppUrl(url, popup) {
+  if (popup && !popup.closed) {
+    popup.location.href = url
+    try {
+      popup.focus?.()
+    } catch {
+      null
+    }
+    return
+  }
+  window.location.href = url
+}
+
+function normalizePhone(value) {
+  return String(value ?? '')
+    .replace(/\D/g, '')
+    .slice(0, 10)
 }
 
 export default function Contact() {
   const MotionDiv = motion.div
-  const [form, setForm] = useState({ name: '', email: '', phone: '', city: '', address: '' })
+  const [form, setForm] = useState({ name: '', phone: '', city: '', address: '' })
   const [status, setStatus] = useState('idle')
   const [error, setError] = useState(null)
 
   async function onSubmit(e) {
     e.preventDefault()
     setError(null)
-    if (!form.name.trim() || !form.phone.trim() || !form.city.trim() || !form.address.trim()) {
-      setError(new Error('Nom, téléphone, ville et adresse sont obligatoires.'))
+    const phone = normalizePhone(form.phone)
+    if (phone.length !== 10) {
+      setError(new Error('Téléphone obligatoire (10 chiffres).'))
       return
     }
 
     const ok = window.confirm(`Confirmer l'envoi ? WhatsApp va s'ouvrir pour confirmer le message.`)
     if (!ok) return
 
+    let waPopup = null
+    waPopup = window.open('about:blank', '_blank', 'noopener,noreferrer')
+
     setStatus('loading')
     try {
       const data = await createInquiry({
         productId: null,
         name: form.name.trim(),
-        email: form.email.trim(),
-        phone: form.phone,
+        email: '',
+        phone,
         city: form.city.trim(),
         address: form.address.trim(),
       })
       setStatus('success')
       const lines = [
-        'Demande Maison Chrono',
-        `Nom: ${form.name.trim()}`,
-        `Téléphone: ${form.phone.trim()}`,
-        `Ville: ${form.city.trim()}`,
-        `Adresse: ${form.address.trim()}`,
-        form.email.trim() ? `Email: ${form.email.trim()}` : null,
+        'Maison Chrono — Contact',
+        form.name.trim() ? `Nom: ${form.name.trim()}` : null,
+        `Téléphone: ${phone}`,
+        form.city.trim() ? `Ville: ${form.city.trim()}` : null,
+        form.address.trim() ? `Adresse: ${form.address.trim()}` : null,
         data?.id ? `Référence: ${data.id}` : null,
         `Site: ${window.location.origin}`,
       ].filter(Boolean)
-      openWhatsApp(lines.join('\n'))
-      setForm({ name: '', email: '', phone: '', city: '', address: '' })
+      const url = createWhatsAppUrl(lines.join('\n'))
+      openWhatsAppUrl(url, waPopup)
+      setForm({ name: '', phone: '', city: '', address: '' })
     } catch (err) {
+      if (waPopup && !waPopup.closed) {
+        try {
+          waPopup.close?.()
+        } catch {
+          null
+        }
+      }
       setError(err)
       setStatus('error')
     }
@@ -100,16 +136,14 @@ export default function Contact() {
                 className="mc-input"
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                required
               />
             </label>
             <label className="mc-field">
-              <span className="mc-field__label">Email</span>
+              <span className="mc-field__label">Ville</span>
               <input
                 className="mc-input"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                value={form.city}
+                onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
               />
             </label>
           </div>
@@ -118,31 +152,24 @@ export default function Contact() {
             <span className="mc-field__label">Téléphone</span>
             <input
               className="mc-input"
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              pattern="[0-9]{10}"
               value={form.phone}
-              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              onChange={(e) => setForm((f) => ({ ...f, phone: normalizePhone(e.target.value) }))}
               required
             />
           </label>
 
           <label className="mc-field">
-                <span className="mc-field__label">Ville</span>
-                <input
-                  className="mc-input"
-                  value={form.city}
-                  onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-                  required
-                />
-              </label>
-
-              <label className="mc-field">
-                <span className="mc-field__label">Adresse</span>
-                <textarea
-                  className="mc-input mc-input--textarea"
-                  value={form.address}
-                  onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-                  required
-                />
-              </label>
+            <span className="mc-field__label">Adresse</span>
+            <textarea
+              className="mc-input mc-input--textarea"
+              value={form.address}
+              onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+            />
+          </label>
 
           {error && status !== 'error' ? (
             <Notice title="Formulaire" tone="danger">

@@ -3,12 +3,12 @@ import { useSearchParams } from 'react-router-dom'
 
 import Notice from '../components/Notice.jsx'
 import ProductCard from '../components/ProductCard.jsx'
-import { listCategories, listProducts } from '../lib/api/catalog.js'
+import { listBrands, listProducts } from '../lib/api/catalog.js'
 import { isSupabaseConfigured } from '../lib/supabaseClient.js'
 
 export default function Catalog() {
   const [searchParams] = useSearchParams()
-  const [categories, setCategories] = useState([])
+  const [brands, setBrands] = useState([])
   const [products, setProducts] = useState([])
 
   const [error, setError] = useState(null)
@@ -28,10 +28,10 @@ export default function Catalog() {
     if (!isSupabaseConfigured()) return
     let cancelled = false
 
-    Promise.all([listCategories(), listProducts(query)])
-      .then(([cats, data]) => {
+    Promise.all([listBrands(), listProducts(query)])
+      .then(([rows, data]) => {
         if (cancelled) return
-        setCategories(cats ?? [])
+        setBrands(rows ?? [])
         setProducts(data)
         setError(null)
         setLoadedKey(JSON.stringify(query))
@@ -57,31 +57,39 @@ export default function Catalog() {
         : 'success'
       : 'loading'
 
-  const productsByCategoryId = useMemo(() => {
+  const productsByBrandId = useMemo(() => {
     const map = new Map()
+    const noBrandKey = 'no-brand'
     for (const p of products) {
-      const catId = p?.categories?.id ?? null
-      if (!catId) continue
-      const list = map.get(catId) ?? []
+      const brandId = p?.brands?.id ?? null
+      const key = brandId ?? noBrandKey
+      const list = map.get(key) ?? []
       list.push(p)
-      map.set(catId, list)
+      map.set(key, list)
     }
-    for (const [catId, list] of map.entries()) {
+    for (const [brandId, list] of map.entries()) {
       list.sort((a, b) => {
         const ta = a?.created_at ? new Date(a.created_at).getTime() : 0
         const tb = b?.created_at ? new Date(b.created_at).getTime() : 0
         return tb - ta
       })
-      map.set(catId, list)
+      map.set(brandId, list)
     }
     return map
   }, [products])
 
   const sections = useMemo(() => {
-    return (categories ?? [])
-      .map((c) => ({ category: c, products: productsByCategoryId.get(c.id) ?? [] }))
+    const list = (brands ?? [])
+      .map((b) => ({ key: `brand:${b.id}`, title: b.name, products: productsByBrandId.get(b.id) ?? [] }))
       .filter((x) => x.products.length > 0)
-  }, [categories, productsByCategoryId])
+
+    const noBrand = productsByBrandId.get('no-brand') ?? []
+    if (noBrand.length > 0) {
+      list.push({ key: 'brand:none', title: 'Autres', products: noBrand })
+    }
+
+    return list
+  }, [brands, productsByBrandId])
 
   const total = products.length
 
@@ -105,13 +113,13 @@ export default function Catalog() {
 
       {status === 'success' && sections.length > 0 ? (
         <div className="mc-stack">
-          {sections.map(({ category, products: catProducts }) => (
-            <section key={category.id} className="mc-section">
+          {sections.map(({ key, title, products: brandProducts }) => (
+            <section key={key} className="mc-section">
               <div className="mc-section__head">
-                <h2 className="mc-section__title">{category.name}</h2>
+                <h2 className="mc-section__title">{title}</h2>
               </div>
               <div className="mc-grid mc-grid--catalog">
-                {catProducts.map((p) => (
+                {brandProducts.map((p) => (
                   <ProductCard key={p.id} product={p} />
                 ))}
               </div>

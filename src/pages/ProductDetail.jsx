@@ -20,9 +20,34 @@ function formatDh(value) {
   return `${numberFormatter.format(safe)} DH`
 }
 
-function openWhatsApp(text) {
-  const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`
-  window.open(url, '_blank', 'noopener,noreferrer')
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+}
+
+function createWhatsAppUrl(text) {
+  if (isMobileDevice()) {
+    return `https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(text)}`
+  }
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`
+}
+
+function openWhatsAppUrl(url, popup) {
+  if (popup && !popup.closed) {
+    popup.location.href = url
+    try {
+      popup.focus?.()
+    } catch {
+      null
+    }
+    return
+  }
+  window.location.href = url
+}
+
+function normalizePhone(value) {
+  return String(value ?? '')
+    .replace(/\D/g, '')
+    .slice(0, 10)
 }
 
 function Spec({ label, value, index = 0 }) {
@@ -80,10 +105,11 @@ export default function ProductDetail() {
     return () => window.clearInterval(id)
   }, [images])
 
-  const [form, setForm] = useState({ name: '', email: '', phone: '', city: '', address: '' })
+  const [form, setForm] = useState({ name: '', phone: '', city: '', address: '' })
   const [submitStatus, setSubmitStatus] = useState('idle')
   const [submitError, setSubmitError] = useState(null)
   const [inquiryId, setInquiryId] = useState(null)
+  const [boxType, setBoxType] = useState('simple')
 
   const [promoCode, setPromoCode] = useState('')
   const [promoStatus, setPromoStatus] = useState('idle')
@@ -179,6 +205,14 @@ export default function ProductDetail() {
   const baseDisplayPrice = promo?.finalPrice ?? price
   const baseHasPromo = promo?.finalPrice != null && promo.finalPrice < price
   const priceOld = baseHasPromo ? price : hasDiscount ? compareAt : null
+  const boxFee = boxType === 'brand' ? 150 : 0
+  const displayPriceNow = baseDisplayPrice + boxFee
+  const displayPriceOld = priceOld == null ? null : priceOld + boxFee
+  const boxLabel =
+    boxType === 'brand'
+      ? 'Boîtier original'
+      : 'Boîtier normal'
+  const boxPriceLabel = boxType === 'brand' ? '+150 DH' : 'Gratuite'
 
   async function applyPromo(e) {
     e.preventDefault()
@@ -236,21 +270,25 @@ export default function ProductDetail() {
     e.preventDefault()
     setSubmitError(null)
 
-    if (!form.name.trim() || !form.phone.trim() || !form.city.trim() || !form.address.trim()) {
-      setSubmitError(new Error('Nom, téléphone, ville et adresse sont obligatoires.'))
+    const phone = normalizePhone(form.phone)
+    if (phone.length !== 10) {
+      setSubmitError(new Error('Téléphone obligatoire (10 chiffres).'))
       return
     }
 
     const ok = window.confirm(`Confirmer l'envoi ? WhatsApp va s'ouvrir pour confirmer le message.`)
     if (!ok) return
 
+    let waPopup = null
+    waPopup = window.open('about:blank', '_blank', 'noopener,noreferrer')
+
     setSubmitStatus('loading')
     try {
       const data = await createInquiry({
         productId: product?.id ?? null,
         name: form.name.trim(),
-        email: form.email.trim(),
-        phone: form.phone,
+        email: '',
+        phone,
         city: form.city.trim(),
         address: form.address.trim(),
       })
@@ -259,19 +297,30 @@ export default function ProductDetail() {
       const productName = product?.name ?? ''
       const productLink = product?.id ? `${window.location.origin}/produit/${product.id}` : window.location.origin
       const lines = [
-        'Demande Maison Chrono',
+        'Maison Chrono — Demande',
         productName ? `Produit: ${productName}` : null,
-        `Nom: ${form.name.trim()}`,
-        `Téléphone: ${form.phone.trim()}`,
-        `Ville: ${form.city.trim()}`,
-        `Adresse: ${form.address.trim()}`,
-        form.email.trim() ? `Email: ${form.email.trim()}` : null,
+        `Prix montre: ${formatDh(baseDisplayPrice)}`,
+        `Boîtier: ${boxLabel} (${boxPriceLabel})`,
+        `Total: ${formatDh(displayPriceNow)}`,
+        form.name.trim() ? `Nom: ${form.name.trim()}` : null,
+        `Téléphone: ${phone}`,
+        form.city.trim() ? `Ville: ${form.city.trim()}` : null,
+        form.address.trim() ? `Adresse: ${form.address.trim()}` : null,
         data?.id ? `Référence: ${data.id}` : null,
         `Lien: ${productLink}`,
       ].filter(Boolean)
-      openWhatsApp(lines.join('\n'))
-      setForm({ name: '', email: '', phone: '', city: '', address: '' })
+      const url = createWhatsAppUrl(lines.join('\n'))
+      openWhatsAppUrl(url, waPopup)
+      setForm({ name: '', phone: '', city: '', address: '' })
+      setBoxType('simple')
     } catch (err) {
+      if (waPopup && !waPopup.closed) {
+        try {
+          waPopup.close?.()
+        } catch {
+          null
+        }
+      }
       setSubmitError(err)
       setSubmitStatus('error')
     }
@@ -384,8 +433,11 @@ export default function ProductDetail() {
               <div className="mc-product__priceRow">
                 <div className="mc-product__price">
                   <div className="mc-priceStack">
-                    <div className="mc-priceNow">{formatDh(baseDisplayPrice)}</div>
-                    {priceOld ? <div className="mc-priceOld">{formatDh(priceOld)}</div> : null}
+                    <div className="mc-priceNow">{formatDh(displayPriceNow)}</div>
+                    {displayPriceOld ? <div className="mc-priceOld">{formatDh(displayPriceOld)}</div> : null}
+                  </div>
+                  <div className="mc-muted">
+                    {boxLabel} ({boxPriceLabel})
                   </div>
                 </div>
                 <span className={`mc-badge${product.in_stock ? '' : ' is-muted'}`}>
@@ -426,6 +478,43 @@ export default function ProductDetail() {
                     </Notice>
                   ) : null}
                 </form>
+              </MotionDiv>
+
+              <MotionDiv
+                className="mc-panel"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.33 }}
+              >
+                <div className="mc-panel__title">Boîtier</div>
+                <div className="mc-choiceList">
+                  <label className="mc-choice">
+                    <input
+                      type="radio"
+                      name="boxType"
+                      checked={boxType === 'simple'}
+                      onChange={() => setBoxType('simple')}
+                    />
+                    <div className="mc-choice__main">
+                      <span className="mc-choice__title">Boîtier normal</span>
+                      <span className="mc-choice__price">Gratuite</span>
+                    </div>
+                  </label>
+                  <label className="mc-choice">
+                    <input
+                      type="radio"
+                      name="boxType"
+                      checked={boxType === 'brand'}
+                      onChange={() => setBoxType('brand')}
+                    />
+                    <div className="mc-choice__main">
+                      <span className="mc-choice__title">
+                        Boîtier original
+                      </span>
+                      <span className="mc-choice__price">+150 DH</span>
+                    </div>
+                  </label>
+                </div>
               </MotionDiv>
 
               {product.description ? (
@@ -487,16 +576,14 @@ export default function ProductDetail() {
                         className="mc-input"
                         value={form.name}
                         onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                        required
                       />
                     </label>
                     <label className="mc-field">
-                      <span className="mc-field__label">Email</span>
+                      <span className="mc-field__label">Ville</span>
                       <input
                         className="mc-input"
-                        type="email"
-                        value={form.email}
-                        onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                        value={form.city}
+                        onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
                       />
                     </label>
                   </div>
@@ -506,30 +593,22 @@ export default function ProductDetail() {
                     <input
                       className="mc-input"
                       type="tel"
-                      inputMode="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      pattern="[0-9]{10}"
                       value={form.phone}
-                      onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                      onChange={(e) => setForm((f) => ({ ...f, phone: normalizePhone(e.target.value) }))}
                       required
                     />
                   </label>
 
                   <div className="mc-form__row">
                     <label className="mc-field">
-                      <span className="mc-field__label">Ville</span>
-                      <input
-                        className="mc-input"
-                        value={form.city}
-                        onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-                        required
-                      />
-                    </label>
-                    <label className="mc-field">
                       <span className="mc-field__label">Adresse</span>
                       <input
                         className="mc-input"
                         value={form.address}
                         onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-                        required
                       />
                     </label>
                   </div>

@@ -1,4 +1,5 @@
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { useFavorites } from '../lib/favorites.js'
@@ -13,10 +14,13 @@ function formatDh(value) {
   return `${numberFormatter.format(safe)} DH`
 }
 
-export default function ProductCard({ product, index = 0 }) {
+export default function ProductCard({ product, index = 0, rotateImages = false }) {
   const MotionArticle = motion.article
   const { isFavorite, toggleFavorite } = useFavorites()
-  const imageUrl = product?.images?.[0] ?? null
+  const images = Array.isArray(product?.images) ? product.images : []
+  const [activeImageIndex, setActiveImageIndex] = useState(0)
+  const safeIndex = images.length > 0 ? activeImageIndex % images.length : 0
+  const imageUrl = images[safeIndex] ?? null
   const brandName = product?.brands?.name ?? ''
   const categoryName = product?.categories?.name ?? ''
   const price = Number(product?.price ?? 0)
@@ -24,6 +28,15 @@ export default function ProductCard({ product, index = 0 }) {
   const hasDiscount = Number.isFinite(price) && Number.isFinite(compareAt) && compareAt > price
   const discountPercent = hasDiscount ? Math.round(((compareAt - price) / compareAt) * 100) : null
   const favorite = isFavorite(product?.id)
+
+  useEffect(() => {
+    if (images.length <= 1) return
+    if (!rotateImages) return
+    const id = window.setInterval(() => {
+      setActiveImageIndex((i) => i + 1)
+    }, 2200)
+    return () => window.clearInterval(id)
+  }, [images.length, product?.id, rotateImages])
 
   function onFavoriteClick(e) {
     e.preventDefault()
@@ -60,7 +73,20 @@ export default function ProductCard({ product, index = 0 }) {
             </svg>
           </button>
           {imageUrl ? (
-            <img src={imageUrl} alt="" loading="lazy" className="mc-card__img" />
+            <AnimatePresence mode="wait">
+              <motion.img
+                key={imageUrl}
+                src={imageUrl}
+                alt=""
+                loading="lazy"
+                className="mc-card__img"
+                style={{ position: 'absolute', inset: 0 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.35 }}
+              />
+            </AnimatePresence>
           ) : (
             <div className="mc-card__img mc-card__img--placeholder"></div>
           )}
