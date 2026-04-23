@@ -883,6 +883,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                                                 ? null
                                                 : () async {
                                                     if (_productId == null) return;
+                                                    final messenger = ScaffoldMessenger.of(context);
                                                     final current = _videoOnHome[url] ?? false;
                                                     final ok = await _videosRepo.trySetShowOnHome(
                                                       productId: _productId!,
@@ -891,7 +892,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                                                     );
                                                     if (!ok) {
                                                       if (!mounted) return;
-                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                      messenger.showSnackBar(
                                                         const SnackBar(
                                                           content: Text(
                                                             'Option accueil indisponible (colonne show_on_home manquante).',
@@ -901,6 +902,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                                                       setState(() => _homeVideoFlagSupported = false);
                                                       return;
                                                     }
+                                                    if (!mounted) return;
                                                     setState(() => _videoOnHome[url] = !current);
                                                   },
                                           ),
