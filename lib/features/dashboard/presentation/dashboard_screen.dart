@@ -27,7 +27,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   String _greetingLine() {
-    return '${_greeting()} EL MIOROUN OUSSAMA';
+    return '${_greeting()} EL MIROUN OUSSAMA';
   }
 
   @override
